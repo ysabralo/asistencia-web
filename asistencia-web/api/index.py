@@ -9,6 +9,11 @@ import os
 import io
 import pandas as pd
 
+# Librerías para nuestro Bypass de DNS
+import urllib.request
+import json
+from urllib.parse import urlparse
+
 app = FastAPI(title="Backend Asistencia Movilnet")
 
 app.add_middleware(
@@ -20,21 +25,47 @@ app.add_middleware(
 )
 
 # ==========================================
-# CONEXIÓN A SUPABASE (CAZADOR DE ERRORES)
+# CONEXIÓN A SUPABASE (BYPASS DE DNS GOOGLE)
 # ==========================================
+def get_ip_from_google_dns(hostname):
+    """Consulta los servidores de Google directamente vía web para evadir a Vercel"""
+    try:
+        url = f"https://dns.google/resolve?name={hostname}&type=A"
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=5) as response:
+            data = json.loads(response.read().decode())
+            for answer in data.get("Answer", []):
+                if answer["type"] == 1: # Tipo A (IPv4)
+                    return answer["data"]
+    except Exception:
+        pass
+    return None
+
 def get_db():
     DATABASE_URL = os.environ.get("DATABASE_URL")
-    
     if not DATABASE_URL:
-        # Si Vercel no está leyendo la variable, lo sabremos aquí
-        raise HTTPException(status_code=500, detail="FALTA_VARIABLE: No se encontró DATABASE_URL en Vercel.")
+        raise HTTPException(status_code=500, detail="FALTA_VARIABLE: No se encontró DATABASE_URL.")
     
+    # 1. Extraemos el dominio de Supabase
+    parsed = urlparse(DATABASE_URL)
+    hostname = parsed.hostname
+    
+    # 2. Usamos Google para descubrir la IP secreta
+    ip_addr = get_ip_from_google_dns(hostname)
+    
+    # 3. Engañamos a psycopg2: Le damos la URL original pero le ordenamos usar la IP descubierta (hostaddr)
+    final_url = DATABASE_URL
+    if ip_addr:
+        if "?" in DATABASE_URL:
+            final_url = f"{DATABASE_URL}&hostaddr={ip_addr}"
+        else:
+            final_url = f"{DATABASE_URL}?hostaddr={ip_addr}"
+            
     try:
-        # Intentamos conectar
-        conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+        # 4. ¡Conectamos!
+        conn = psycopg2.connect(final_url, cursor_factory=RealDictCursor)
     except Exception as e:
-        # ¡ATRAPADO! Si falla, Vercel no lo esconderá, te lo mandará a la pantalla
-        raise HTTPException(status_code=500, detail=f"ERROR_DB: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"ERROR_DB: {str(e)} | IP_USADA: {ip_addr}")
     
     try:
         yield conn
