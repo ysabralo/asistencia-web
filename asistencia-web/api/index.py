@@ -9,10 +9,8 @@ import os
 import io
 import pandas as pd
 
-# Inicializamos la API Web
 app = FastAPI(title="Backend Asistencia Movilnet")
 
-# Configuramos CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -22,15 +20,22 @@ app.add_middleware(
 )
 
 # ==========================================
-# CONEXIÓN A SUPABASE (PostgreSQL)
+# CONEXIÓN A SUPABASE (CAZADOR DE ERRORES)
 # ==========================================
 def get_db():
     DATABASE_URL = os.environ.get("DATABASE_URL")
-    if not DATABASE_URL:
-        raise HTTPException(status_code=500, detail="Falta configurar DATABASE_URL")
     
-    # Conexión limpia y directa (Requiere psycopg2-binary en Vercel)
-    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    if not DATABASE_URL:
+        # Si Vercel no está leyendo la variable, lo sabremos aquí
+        raise HTTPException(status_code=500, detail="FALTA_VARIABLE: No se encontró DATABASE_URL en Vercel.")
+    
+    try:
+        # Intentamos conectar
+        conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    except Exception as e:
+        # ¡ATRAPADO! Si falla, Vercel no lo esconderá, te lo mandará a la pantalla
+        raise HTTPException(status_code=500, detail=f"ERROR_DB: {str(e)}")
+    
     try:
         yield conn
     finally:
@@ -69,7 +74,6 @@ def login(req: LoginRequest, db = Depends(get_db)):
 @app.get("/api/estado-sistema")
 def estado_sistema(db = Depends(get_db)):
     cursor = db.cursor()
-    
     cursor.execute("SELECT semana_inicio, semana_fin, estatus FROM configuracion_sistema WHERE id = 1")
     config = cursor.fetchone()
     
@@ -110,7 +114,6 @@ def estado_sistema(db = Depends(get_db)):
 @app.post("/api/cargar-plantilla")
 async def cargar_plantilla(file: UploadFile = File(...), db = Depends(get_db)):
     cursor = db.cursor()
-    
     cursor.execute("SELECT estatus FROM configuracion_sistema WHERE id = 1")
     config = cursor.fetchone()
     if config and config['estatus'] == 'Cerrada':
@@ -124,17 +127,14 @@ async def cargar_plantilla(file: UploadFile = File(...), db = Depends(get_db)):
         registros_exitosos = 0
         registros_rechazados = 0
         
-        has_origen = 'Origen' in df.columns
-        has_unidad = 'Unidad' in df.columns
-        
         for index, fila in df.iterrows():
             id_emp = str(fila.get('ID_Empleado', '')).strip()
             if not id_emp or id_emp == 'nan': continue
             
-            origen_val = str(fila['Origen']).strip() if has_origen else 'Propio'
+            origen_val = str(fila.get('Origen', 'Propio')).strip()
             if origen_val not in ['Propio', 'Sub-Unidad']: origen_val = 'Propio'
             
-            unidad_val = str(fila['Unidad']).strip() if has_unidad else 'Sin Asignar'
+            unidad_val = str(fila.get('Unidad', 'Sin Asignar')).strip()
             if not unidad_val or unidad_val == 'nan': unidad_val = 'Sin Asignar'
             
             cursor.execute("SELECT nombre_completo FROM empleados WHERE id_empleado = %s", (id_emp,))
@@ -150,18 +150,11 @@ async def cargar_plantilla(file: UploadFile = File(...), db = Depends(get_db)):
                 registros_rechazados += 1
         
         db.commit()
-        return {
-            "success": True, 
-            "mensaje": f"Plantilla actualizada.\nExitosos: {registros_exitosos}\nIgnorados: {registros_rechazados}"
-        }
-        
+        return {"success": True, "mensaje": f"Plantilla actualizada.\nExitosos: {registros_exitosos}"}
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error al procesar Excel: {str(e)}")
 
-# ==========================================
-# RUTA PARA MOSTRAR LA INTERFAZ HTML
-# ==========================================
 @app.get("/")
 @app.get("/index.html")
 def servir_interfaz():
