@@ -9,6 +9,10 @@ import os
 import io
 import pandas as pd
 
+# ---> LIBRERÍAS NATIVAS PARA EVADIR EL BUG DNS DE VERCEL <---
+import socket
+from urllib.parse import urlparse
+
 # Inicializamos la API Web
 app = FastAPI(title="Backend Asistencia Movilnet")
 
@@ -22,14 +26,23 @@ app.add_middleware(
 )
 
 # ==========================================
-# CONEXIÓN A SUPABASE (PostgreSQL)
+# CONEXIÓN A SUPABASE (PostgreSQL) - BYPASS DE VERCEL
 # ==========================================
 def get_db():
     DATABASE_URL = os.environ.get("DATABASE_URL")
     if not DATABASE_URL:
         raise HTTPException(status_code=500, detail="Falta configurar DATABASE_URL")
     
-    conn = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    # Resolvemos la IP nativamente con Python para evitar el "System error" de psycopg2
+    try:
+        parsed = urlparse(DATABASE_URL)
+        ip_address = socket.gethostbyname(parsed.hostname)
+        url_final = DATABASE_URL.replace(parsed.hostname, ip_address)
+    except Exception:
+        url_final = DATABASE_URL # Fallback de seguridad en caso de fallo
+    
+    # Conectamos usando la IP directa
+    conn = psycopg2.connect(url_final, cursor_factory=RealDictCursor)
     try:
         yield conn
     finally:
@@ -159,7 +172,7 @@ async def cargar_plantilla(file: UploadFile = File(...), db = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Error al procesar Excel: {str(e)}")
 
 # ==========================================
-# RUTA PARA MOSTRAR LA INTERFAZ HTML LOCALMENTE
+# RUTA PARA MOSTRAR LA INTERFAZ HTML
 # ==========================================
 @app.get("/")
 @app.get("/index.html")
