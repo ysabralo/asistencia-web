@@ -2,12 +2,14 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-import pg8000.dbapi
 import hashlib
 import os
 import io
 import pandas as pd
-from urllib.parse import urlparse, unquote
+
+# ---> LIBRERÍA DE NUEVA GENERACIÓN (Inmune a bugs de Vercel) <---
+import psycopg
+from psycopg.rows import dict_row
 
 app = FastAPI(title="Backend Asistencia Movilnet")
 
@@ -20,42 +22,23 @@ app.add_middleware(
 )
 
 # ==========================================
-# CONEXIÓN A SUPABASE (100% PYTHON PURO - INMUNE A BUGS DE VERCEL)
+# CONEXIÓN A SUPABASE (PSYCOPG V3)
 # ==========================================
 def get_db():
     DATABASE_URL = os.environ.get("DATABASE_URL")
     if not DATABASE_URL:
-        raise HTTPException(status_code=500, detail="Falta DATABASE_URL")
+        raise HTTPException(status_code=500, detail="FALTA_VARIABLE: No se encontró DATABASE_URL")
     
     try:
-        parsed = urlparse(DATABASE_URL)
-        # Limpiamos caracteres especiales de la contraseña (como el %2A por el asterisco)
-        pwd = unquote(parsed.password) if parsed.password else None
-        
-        # Conexión pura en Python
-        conn = pg8000.dbapi.connect(
-            user=parsed.username,
-            password=pwd,
-            host=parsed.hostname,
-            port=parsed.port,
-            database=parsed.path.lstrip("/"),
-            ssl_context=True  # Supabase requiere conexión segura
-        )
+        # dict_row hace que las consultas devuelvan diccionarios automáticamente
+        conn = psycopg.connect(DATABASE_URL, row_factory=dict_row)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"ERROR_CONEXION_PG8000: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"ERROR_DB_V3: {str(e)}")
     
     try:
         yield conn
     finally:
         conn.close()
-
-# Función mágica para devolver diccionarios (Reemplaza a RealDictCursor)
-def dict_fetchone(cursor):
-    row = cursor.fetchone()
-    if not row:
-        return None
-    columns = [desc[0] for desc in cursor.description]
-    return dict(zip(columns, row))
 
 # ==========================================
 # RUTAS DE LA API (Endpoints)
@@ -70,7 +53,7 @@ def login(req: LoginRequest, db = Depends(get_db)):
     pwd_hash = hashlib.sha256(req.password.encode()).hexdigest()
     
     cursor.execute("SELECT rol FROM usuarios WHERE username = %s AND password = %s", (req.username, pwd_hash))
-    user = dict_fetchone(cursor)
+    user = cursor.fetchone()
     
     if user:
         rol = user['rol']
@@ -92,13 +75,13 @@ def estado_sistema(db = Depends(get_db)):
     cursor = db.cursor()
     
     cursor.execute("SELECT semana_inicio, semana_fin, estatus FROM configuracion_sistema WHERE id = 1")
-    config = dict_fetchone(cursor)
+    config = cursor.fetchone()
     
     cursor.execute("SELECT COUNT(*) as total FROM mi_unidad")
-    total_plantilla = dict_fetchone(cursor)['total']
+    total_plantilla = cursor.fetchone()['total']
     
     cursor.execute("SELECT COUNT(*) as total FROM historial_semanas")
-    hay_historial = dict_fetchone(cursor)['total'] > 0
+    hay_historial = cursor.fetchone()['total'] > 0
 
     semana_activa = config is not None
     semana_abierta = config and config['estatus'] == 'Abierta'
@@ -114,7 +97,7 @@ def estado_sistema(db = Depends(get_db)):
                 GROUP BY r.id_empleado HAVING COUNT(*) = 7
             ) as subquery
         ''', (config['semana_inicio'], config['semana_fin']))
-        empleados_completos = dict_fetchone(cursor)['emp_completos']
+        empleados_completos = cursor.fetchone()['emp_completos']
         faltantes = total_plantilla - empleados_completos
 
     return {
@@ -132,7 +115,7 @@ def estado_sistema(db = Depends(get_db)):
 async def cargar_plantilla(file: UploadFile = File(...), db = Depends(get_db)):
     cursor = db.cursor()
     cursor.execute("SELECT estatus FROM configuracion_sistema WHERE id = 1")
-    config = dict_fetchone(cursor)
+    config = cursor.fetchone()
     if config and config['estatus'] == 'Cerrada':
         raise HTTPException(status_code=403, detail="La semana ya fue exportada y CERRADA.")
 
@@ -155,7 +138,7 @@ async def cargar_plantilla(file: UploadFile = File(...), db = Depends(get_db)):
             if not unidad_val or unidad_val == 'nan': unidad_val = 'Sin Asignar'
             
             cursor.execute("SELECT nombre_completo FROM empleados WHERE id_empleado = %s", (id_emp,))
-            if dict_fetchone(cursor):
+            if cursor.fetchone():
                 cursor.execute("""
                     INSERT INTO mi_unidad (id_empleado, origen, unidad) 
                     VALUES (%s, %s, %s)
