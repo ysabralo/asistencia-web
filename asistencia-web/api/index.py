@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 import hashlib
@@ -257,7 +257,7 @@ async def importar_semana(file: UploadFile = File(...), db = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Error al procesar el archivo: {str(e)}")
 
 # ==========================================
-# NUEVAS RUTAS: REGISTRO Y ENVÍO PROFESIONAL
+# RUTAS DE UNIDADES PRINCIPALES (WEB)
 # ==========================================
 @app.get("/api/mi-asistencia/{unidad_nombre}")
 def obtener_asistencia_unidad(unidad_nombre: str, db = Depends(get_db)):
@@ -388,6 +388,86 @@ def enviar_a_rrhh(req: EnvioRRHHRequest, db = Depends(get_db)):
     
     db.commit()
     return {"success": True, "mensaje": "¡100% Completado! Reporte bloqueado y enviado a Recursos Humanos."}
+
+# ==========================================
+# RUTAS DE RRHH - MONITOREO Y DESCARGA
+# ==========================================
+@app.get("/api/rrhh/monitoreo-entregas")
+def monitoreo_entregas(db = Depends(get_db)):
+    """ Devuelve el estatus de entrega de todas las Unidades Principales """
+    cursor = db.cursor()
+    cursor.execute("SELECT semana_inicio, semana_fin FROM configuracion_sistema WHERE id = 1")
+    config = cursor.fetchone()
+    if not config:
+        return {"semana_activa": False, "entregas": []}
+    
+    cursor.execute("""
+        SELECT u.unidad, 
+               COUNT(u.id_empleado) as total_empleados,
+               e.estatus_entrega,
+               e.fecha_envio
+        FROM mi_unidad u
+        LEFT JOIN estado_entregas e 
+          ON u.unidad = e.unidad_nombre 
+         AND e.semana_inicio = %s 
+         AND e.semana_fin = %s
+        WHERE u.unidad != 'Sin Asignar'
+        GROUP BY u.unidad, e.estatus_entrega, e.fecha_envio
+        ORDER BY u.unidad ASC
+    """, (config['semana_inicio'], config['semana_fin']))
+    
+    resultados = cursor.fetchall()
+    
+    for res in resultados:
+        if res['fecha_envio']:
+            res['fecha_envio'] = res['fecha_envio'].strftime('%d/%m/%Y %I:%M %p')
+        else:
+            res['estatus_entrega'] = 'Pendiente'
+            
+    return {
+        "semana_activa": True,
+        "fecha_inicio": config['semana_inicio'].strftime('%d/%m/%Y'),
+        "fecha_fin": config['semana_fin'].strftime('%d/%m/%Y'),
+        "entregas": resultados
+    }
+
+@app.get("/api/rrhh/descargar-consolidado")
+def descargar_consolidado(db = Depends(get_db)):
+    """ Genera el Excel final para la nómina de RRHH """
+    cursor = db.cursor()
+    cursor.execute("SELECT semana_inicio, semana_fin FROM configuracion_sistema WHERE id = 1")
+    config = cursor.fetchone()
+    if not config:
+        raise HTTPException(status_code=400, detail="No hay semana activa.")
+        
+    cursor.execute("""
+        SELECT r.fecha, r.id_empleado, e.nombre_completo, u.unidad, e.tipo_horario, r.estatus, r.motivo 
+        FROM registro_asistencia r 
+        INNER JOIN mi_unidad u ON r.id_empleado = u.id_empleado 
+        INNER JOIN empleados e ON r.id_empleado = e.id_empleado
+        WHERE r.fecha BETWEEN %s AND %s 
+        ORDER BY u.unidad ASC, r.id_empleado ASC, r.fecha ASC
+    """, (config['semana_inicio'], config['semana_fin']))
+    
+    registros = cursor.fetchall()
+    df_detalle = pd.DataFrame(registros)
+    
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        if not df_detalle.empty:
+            df_detalle['fecha'] = pd.to_datetime(df_detalle['fecha']).dt.strftime('%d/%m/%Y')
+            df_detalle.columns = ['Fecha', 'ID Empleado', 'Nombre Completo', 'Unidad / Gerencia', 'Tipo Horario', 'Estatus Asistencia', 'Motivo']
+            df_detalle.to_excel(writer, index=False, sheet_name="Asistencia_Consolidada")
+        else:
+            pd.DataFrame(["No hay registros en esta semana"]).to_excel(writer, index=False, sheet_name="Sin_Datos")
+            
+    output.seek(0)
+    
+    headers = {
+        'Content-Disposition': f'attachment; filename="Nómina_Asistencia_{config["semana_inicio"]}.xlsx"',
+        'Access-Control-Expose-Headers': 'Content-Disposition'
+    }
+    return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 # ==========================================
 # RUTAS ESTÁTICAS / WEB
