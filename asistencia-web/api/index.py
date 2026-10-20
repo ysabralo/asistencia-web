@@ -7,7 +7,12 @@ import os
 import io
 import pandas as pd
 
-# ---> LIBRERÍA DE NUEVA GENERACIÓN (Inmune a bugs de Vercel) <---
+# ---> Librerías para el Bypass Maestro de DNS <---
+import socket
+import urllib.request
+import json
+from urllib.parse import urlparse, urlunparse, urlencode, parse_qsl
+
 import psycopg
 from psycopg.rows import dict_row
 
@@ -22,18 +27,56 @@ app.add_middleware(
 )
 
 # ==========================================
-# CONEXIÓN A SUPABASE (PSYCOPG V3)
+# CONEXIÓN A SUPABASE (DNS BYPASS CLOUDFLARE)
 # ==========================================
+def resolve_dns_cloudflare(hostname):
+    """Bypass: Le pregunta la IP a Cloudflare por HTTP para evadir el bloqueo de Linux en Vercel"""
+    url = f"https://cloudflare-dns.com/dns-query?name={hostname}&type=A"
+    req = urllib.request.Request(url, headers={'accept': 'application/dns-json'})
+    with urllib.request.urlopen(req, timeout=5) as response:
+        data = json.loads(response.read().decode())
+        for answer in data.get("Answer", []):
+            if answer["type"] == 1: # Si es IPv4
+                return answer["data"]
+    raise Exception("Cloudflare no pudo encontrar la IP")
+
 def get_db():
     DATABASE_URL = os.environ.get("DATABASE_URL")
     if not DATABASE_URL:
-        raise HTTPException(status_code=500, detail="FALTA_VARIABLE: No se encontró DATABASE_URL")
+        raise HTTPException(status_code=500, detail="FALTA_VARIABLE_DATABASE_URL")
+    
+    parsed = urlparse(DATABASE_URL)
+    hostname = parsed.hostname
+    
+    # 1. Obtenemos la IP de forma segura, evadiendo el bug [Errno 16] de Vercel
+    ip_addr = None
+    try:
+        ip_addr = socket.gethostbyname(hostname) # Intento nativo de Python
+    except Exception:
+        try:
+            ip_addr = resolve_dns_cloudflare(hostname) # Intento de fuerza bruta con Cloudflare
+        except Exception as e2:
+            raise HTTPException(status_code=500, detail=f"Fallo de DNS total: {str(e2)}")
+
+    # 2. Inyectamos la IP en los parámetros (hostaddr) para que la base de datos no haga DNS
+    query_params = dict(parse_qsl(parsed.query))
+    query_params['hostaddr'] = ip_addr
+    new_query = urlencode(query_params)
+    
+    final_url = urlunparse((
+        parsed.scheme,
+        parsed.netloc,
+        parsed.path,
+        parsed.params,
+        new_query,
+        parsed.fragment
+    ))
     
     try:
-        # dict_row hace que las consultas devuelvan diccionarios automáticamente
-        conn = psycopg.connect(DATABASE_URL, row_factory=dict_row)
+        # 3. Conectamos con psycopg V3 (inmune a fallos antiguos)
+        conn = psycopg.connect(final_url, row_factory=dict_row)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"ERROR_DB_V3: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"ERROR_CONEXION_V3: {str(e)} | IP_DESCUBIERTA: {ip_addr}")
     
     try:
         yield conn
