@@ -4,3 +4,4 @@ psycopg[binary]
 pandas
 openpyxl
 python-multipart
+msoffcrypto-tool
