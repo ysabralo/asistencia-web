@@ -7,7 +7,7 @@ import os
 import io
 import pandas as pd
 
-# Librería de PostgreSQL moderna y limpia
+# Librería de PostgreSQL moderna y limpia (psycopg V3)
 import psycopg
 from psycopg.rows import dict_row
 
@@ -22,7 +22,7 @@ app.add_middleware(
 )
 
 # ==========================================
-# CONEXIÓN A SUPABASE (Limpia y Directa)
+# CONEXIÓN A SUPABASE
 # ==========================================
 def get_db():
     DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -49,9 +49,11 @@ class LoginRequest(BaseModel):
 @app.post("/api/login")
 def login(req: LoginRequest, db = Depends(get_db)):
     cursor = db.cursor()
+    # Encriptamos la contraseña que escribe el usuario
     pwd_hash = hashlib.sha256(req.password.encode()).hexdigest()
     
-    cursor.execute("SELECT rol FROM usuarios WHERE username = %s AND password = %s", (req.username, pwd_hash))
+    # CORREGIDO: Buscamos en la columna 'password_hash' tal como está en Supabase
+    cursor.execute("SELECT rol FROM usuarios WHERE username = %s AND password_hash = %s", (req.username, pwd_hash))
     user = cursor.fetchone()
     
     if user:
