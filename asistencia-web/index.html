@@ -10,7 +10,6 @@
 </head>
 <body class="bg-gray-100 font-sans antialiased min-h-screen flex flex-col">
 
-    <!-- NAVEGACIÓN -->
     <nav id="navbar" class="bg-blue-900 text-white shadow-lg view-hidden">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
@@ -28,33 +27,22 @@
         </div>
     </nav>
 
-    <!-- LOGIN -->
     <div id="view-login" class="flex-grow flex items-center justify-center p-4">
         <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border-t-4 border-blue-700">
             <div class="text-center mb-8">
-                <div class="bg-blue-50 text-blue-700 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 shadow-inner border border-blue-100">
-                    <i class="fa-solid fa-fingerprint text-4xl"></i>
-                </div>
+                <div class="bg-blue-50 text-blue-700 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 shadow-inner border border-blue-100"><i class="fa-solid fa-fingerprint text-4xl"></i></div>
                 <h2 class="text-2xl font-bold text-gray-800">Acceso Corporativo</h2>
             </div>
             <form id="login-form" onsubmit="iniciarSesion(event)" class="space-y-5">
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-1">Usuario</label>
-                    <input type="text" id="username" class="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
-                </div>
-                <div>
-                    <label class="block text-sm font-bold text-gray-700 mb-1">Contraseña</label>
-                    <input type="password" id="password" class="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required>
-                </div>
-                <button type="submit" id="btn-login" class="w-full bg-blue-700 text-white p-3.5 rounded-lg font-bold hover:bg-blue-800 transition shadow-lg mt-2">
-                    Ingresar
-                </button>
+                <div><label class="block text-sm font-bold text-gray-700 mb-1">Usuario</label><input type="text" id="username" class="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg outline-none" required></div>
+                <div><label class="block text-sm font-bold text-gray-700 mb-1">Contraseña</label><input type="password" id="password" class="w-full p-3 bg-gray-50 border border-gray-300 rounded-lg outline-none" required></div>
+                <button type="submit" id="btn-login" class="w-full bg-blue-700 text-white p-3.5 rounded-lg font-bold hover:bg-blue-800 shadow-lg">Ingresar</button>
                 <div id="login-error" class="text-red-600 text-sm text-center hidden font-medium bg-red-50 p-3 rounded-lg border border-red-200"></div>
             </form>
         </div>
     </div>
 
-    <!-- DASHBOARD UNIDADES (Reportador / Cierre) -->
+    <!-- DASHBOARD UNIDADES -->
     <div id="view-unidad" class="view-hidden flex-grow p-4 md:p-6">
         <div class="max-w-7xl mx-auto space-y-6">
             <div class="bg-white rounded-xl shadow-md p-6 flex flex-col md:flex-row justify-between items-center border-l-4 border-blue-600">
@@ -65,9 +53,7 @@
                 <div class="mt-4 md:mt-0 text-center md:text-right bg-gray-50 p-3 rounded-lg border border-gray-200 min-w-[250px]">
                     <div class="text-xs text-gray-500 mb-1 font-bold uppercase tracking-wider">Cumplimiento de Reporte</div>
                     <div class="flex items-center space-x-3">
-                        <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden shadow-inner">
-                            <div id="progress-bar" class="bg-green-500 h-3 transition-all duration-500" style="width: 0%"></div>
-                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden shadow-inner"><div id="progress-bar" class="bg-green-500 h-3 transition-all duration-500" style="width: 0%"></div></div>
                         <span id="progress-text" class="font-bold text-gray-800 text-sm">0%</span>
                     </div>
                 </div>
@@ -90,18 +76,13 @@
             </div>
 
             <div id="panel-cierre-unidad" class="flex flex-col md:flex-row justify-between items-center p-5 bg-gray-50 rounded-xl shadow-inner border border-gray-200 gap-4 hidden">
-                <div class="text-sm font-medium text-gray-600"><i class="fa-solid fa-circle-info text-blue-600 mr-2"></i> Perfil autorizado para Cierre.</div>
+                <div class="text-sm font-medium text-gray-600"><i class="fa-solid fa-circle-info text-blue-600 mr-2"></i> Perfil autorizado para Cierre de su Jurisdicción.</div>
                 <div class="flex items-center gap-4 w-full md:w-auto">
                     <div id="msg-envio" class="text-sm font-bold hidden"></div>
-                    <button id="btn-enviar-rrhh" onclick="enviarReporteRRHH()" disabled class="w-full md:w-auto bg-gray-400 cursor-not-allowed text-white px-6 py-3 rounded-lg font-bold transition shadow-md">
-                        <i class="fa-solid fa-lock mr-2"></i> Certificar y Enviar a RRHH
-                    </button>
+                    <button id="btn-enviar-rrhh" onclick="enviarReporteRRHH()" disabled class="w-full md:w-auto bg-gray-400 cursor-not-allowed text-white px-6 py-3 rounded-lg font-bold transition shadow-md"><i class="fa-solid fa-lock mr-2"></i> Certificar y Enviar a RRHH</button>
                 </div>
             </div>
-            
-            <div id="panel-solo-lectura" class="p-4 text-center text-sm font-medium text-gray-500 bg-blue-50 rounded-xl border border-blue-100 hidden">
-                <i class="fa-solid fa-eye text-blue-500 mr-2"></i> Perfil "Reportador". Cierre bloqueado.
-            </div>
+            <div id="panel-solo-lectura" class="p-4 text-center text-sm font-medium text-gray-500 bg-blue-50 rounded-xl border border-blue-100 hidden"><i class="fa-solid fa-eye text-blue-500 mr-2"></i> Perfil "Reportador". Cierre bloqueado.</div>
         </div>
     </div>
 
@@ -109,37 +90,36 @@
     <div id="view-rrhh" class="view-hidden flex-grow p-4 md:p-6">
         <div class="max-w-7xl mx-auto space-y-6">
             
-            <!-- Cabecera RRHH -->
             <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-purple-600 flex justify-between items-center">
-                <div>
-                    <h1 class="text-2xl font-bold text-gray-800">Módulo Administrativo ERP</h1>
-                    <p class="text-gray-500 mt-1">Gestión Centralizada de Recursos Humanos.</p>
-                </div>
-                <div id="rrhh-badge-semana" class="bg-gray-100 text-gray-800 px-4 py-2 rounded-lg font-bold shadow-inner border border-gray-200">
-                    Consultando...
-                </div>
+                <div><h1 class="text-2xl font-bold text-gray-800">Módulo Administrativo ERP</h1><p class="text-gray-500 mt-1">Gestión Centralizada de Recursos Humanos.</p></div>
+                <div id="rrhh-badge-semana" class="bg-gray-100 text-gray-800 px-4 py-2 rounded-lg font-bold shadow-inner border border-gray-200">Consultando...</div>
             </div>
             
-            <!-- Grid de RRHH -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
-                <!-- Columna Izquierda (Archivos y Usuarios) -->
                 <div class="space-y-6">
-                    <!-- Aperturar Semana Excel -->
+                    <!-- CARGA MAESTRA CON AYUDA -->
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                         <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-upload text-blue-600 mr-2"></i>Carga Maestra (Excel)</h2>
-                        <p class="text-xs text-gray-500 mb-4">El archivo debe contener las hojas: <b>Configuracion</b>, <b>Personal_Activo</b> y <b>Absentismos</b>.</p>
-                        <input type="file" id="file-master" accept=".xlsx" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 mb-4 border border-gray-300"/>
-                        <button onclick="importarMaestroRRHH()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 transition shadow">
-                            Ejecutar Carga Maestra
-                        </button>
+                        <input type="file" id="file-master" accept=".xlsx" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 mb-2 border border-gray-300"/>
+                        
+                        <details class="bg-blue-50 text-blue-800 text-xs p-3 rounded border border-blue-200 mb-4 cursor-pointer">
+                            <summary class="font-bold outline-none"><i class="fa-solid fa-circle-info mr-1"></i> Ver Formato Exacto Requerido</summary>
+                            <div class="mt-2 space-y-2 border-t border-blue-200 pt-2 text-[11px]">
+                                <p><b>Hoja 1: Configuracion</b><br>Columnas: <i>Fecha_Inicio, Fecha_Fin</i></p>
+                                <p><b>Hoja 2: Personal_Activo</b><br>Columnas: <i>P00, Cedula, Nombres_Apellidos, Fecha_Ingreso, Unidad_Administrativa, Gerencia_General</i></p>
+                                <p><b>Hoja 3: Absentismos</b><br>Columnas: <i>P00, Tipo_Ausentismo, Fecha_Inicio, Fecha_Fin</i></p>
+                            </div>
+                        </details>
+
+                        <button onclick="importarMaestroRRHH()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 transition shadow">Ejecutar Carga Maestra</button>
                     </div>
 
-                    <!-- Gestión de Usuarios -->
+                    <!-- GESTIÓN DE USUARIOS CON ALCANCE -->
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-                        <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-users text-blue-600 mr-2"></i>Gestión de Usuarios</h2>
+                        <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-users-gear text-blue-600 mr-2"></i>Gestión de Usuarios</h2>
                         <form id="form-usuarios" onsubmit="crearUsuario(event)" class="space-y-3">
-                            <input type="text" id="usr_nombre" placeholder="Nombre de Usuario / Unidad" class="w-full p-2 text-sm bg-gray-50 border rounded outline-none" required>
+                            <input type="text" id="usr_nombre" placeholder="Nombre de Usuario (Login)" class="w-full p-2 text-sm bg-gray-50 border rounded outline-none" required>
                             <input type="password" id="usr_pass" placeholder="Contraseña" class="w-full p-2 text-sm bg-gray-50 border rounded outline-none" required>
                             <select id="usr_rol" class="w-full p-2 text-sm bg-gray-50 border rounded outline-none" required>
                                 <option value="">-- Seleccionar Perfil --</option>
@@ -147,45 +127,36 @@
                                 <option value="Cierre de Unidad">2. Cierre de Unidad</option>
                                 <option value="Reportador">3. Reportador</option>
                             </select>
+                            <div class="border-t pt-2 mt-2">
+                                <p class="text-[10px] text-gray-500 mb-1 uppercase font-bold">Alcance de Datos (Dejar en blanco para acceso total)</p>
+                                <input type="text" id="usr_gerencia" placeholder="Filtro: Gerencia General" class="w-full p-2 text-sm bg-blue-50 border border-blue-100 rounded outline-none mb-2">
+                                <input type="text" id="usr_unidad" placeholder="Filtro: Unidad Administrativa" class="w-full p-2 text-sm bg-blue-50 border border-blue-100 rounded outline-none">
+                            </div>
                             <button type="submit" class="w-full bg-green-600 text-white py-2 rounded-lg font-bold hover:bg-green-700 transition">Crear Acceso</button>
                         </form>
                         
                         <div class="mt-4 max-h-40 overflow-y-auto border rounded bg-gray-50 p-2">
-                            <table class="w-full text-xs text-left">
-                                <tbody id="tabla-usuarios-body"></tbody>
-                            </table>
+                            <table class="w-full text-xs text-left"><tbody id="tabla-usuarios-body"></tbody></table>
                         </div>
                     </div>
                 </div>
 
-                <!-- Columna Derecha (Monitoreo y Movimientos) -->
                 <div class="col-span-1 lg:col-span-2 space-y-6 flex flex-col">
-                    
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100 flex-grow flex flex-col">
                         <div class="flex items-center justify-between mb-4 border-b pb-2">
-                            <h2 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-satellite-dish text-purple-600 mr-2"></i>Auditoría de Entregas</h2>
-                            <button onclick="cargarMonitoreoRRHH()" class="text-blue-700 bg-blue-50 px-3 py-1 rounded-lg text-xs font-bold border border-blue-200">
-                                Actualizar
-                            </button>
+                            <h2 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-satellite-dish text-purple-600 mr-2"></i>Auditoría de Entregas Globales</h2>
+                            <button onclick="cargarMonitoreoRRHH()" class="text-blue-700 bg-blue-50 px-3 py-1 rounded-lg text-xs font-bold border border-blue-200">Actualizar</button>
                         </div>
-                        
                         <div class="overflow-y-auto flex-grow max-h-64 mb-4 border border-gray-200 rounded shadow-inner bg-gray-50">
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-200 sticky top-0 shadow-sm">
-                                    <tr>
-                                        <th class="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase">Gerencia / Unidad</th>
-                                        <th class="px-4 py-2 text-center text-xs font-bold text-gray-700 uppercase">Plantilla</th>
-                                        <th class="px-4 py-2 text-center text-xs font-bold text-gray-700 uppercase">Estatus</th>
-                                    </tr>
+                                    <tr><th class="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase">Gerencia / Unidad</th><th class="px-4 py-2 text-center text-xs font-bold text-gray-700 uppercase">Plantilla</th><th class="px-4 py-2 text-center text-xs font-bold text-gray-700 uppercase">Estatus</th></tr>
                                 </thead>
                                 <tbody id="tabla-monitoreo" class="bg-white divide-y divide-gray-100"></tbody>
                             </table>
                         </div>
-                        <button onclick="descargarConsolidadoNomina()" class="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700 transition shadow">
-                            <i class="fa-solid fa-file-excel mr-2"></i> Exportar Nómina Consolidada
-                        </button>
+                        <button onclick="descargarConsolidadoNomina()" class="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700 transition shadow"><i class="fa-solid fa-file-excel mr-2"></i> Exportar Nómina Consolidada</button>
                     </div>
-
                 </div>
             </div>
         </div>
@@ -210,10 +181,7 @@
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Verificando...'; btn.disabled = true; err.classList.add('hidden');
 
             try {
-                const res = await fetch(`${API_BASE}/api/login`, {
-                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({username: u, password: p})
-                });
+                const res = await fetch(`${API_BASE}/api/login`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: u, password: p}) });
                 const data = await res.json();
                 if(res.ok && data.success) {
                     currentUser = data.username; currentRole = data.rol;
@@ -234,13 +202,9 @@
                         }
                         cargarDatosUnidad();
                     }
-                } else {
-                    err.innerText = data.detail || "Error de credenciales"; err.classList.remove('hidden');
-                }
-            } catch (error) {
-                err.innerText = "Falla de red contactando al ERP."; err.classList.remove('hidden');
-            }
-            btn.innerHTML = 'Ingresar al Sistema'; btn.disabled = false;
+                } else { err.innerText = data.detail || "Error de credenciales"; err.classList.remove('hidden'); }
+            } catch (error) { err.innerText = "Falla de red contactando al ERP."; err.classList.remove('hidden'); }
+            btn.innerHTML = 'Ingresar'; btn.disabled = false;
         }
 
         function cerrarSesion() {
@@ -248,9 +212,6 @@
             document.getElementById('username').value = ''; document.getElementById('password').value = ''; mostrarVista('view-login');
         }
 
-        // ==========================
-        // LÓGICA DE UNIDADES (GRID)
-        // ==========================
         async function cargarDatosUnidad() {
             try {
                 const res = await fetch(`${API_BASE}/api/mi-asistencia/${currentUser}`);
@@ -258,7 +219,7 @@
                 const tbody = document.getElementById('tabla-body');
                 
                 if(!data.semana_activa) { tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-red-600 font-bold">Semana cerrada.</td></tr>'; return; }
-                if(data.empleados.length === 0) { tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-gray-500">Plantilla vacía.</td></tr>'; return; }
+                if(data.empleados.length === 0) { tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-gray-500">No hay personal asociado a su jurisdicción.</td></tr>'; return; }
 
                 semanaData = { start: data.fecha_inicio, end: data.fecha_fin, locked: data.bloqueado_por_envio, ausentismos: data.ausentismos_fijos };
                 document.getElementById('unidad-rango-fechas').innerHTML = `<i class="fa-regular fa-calendar text-blue-600 mr-2"></i><b>${data.fecha_inicio}</b> al <b>${data.fecha_fin}</b>`;
@@ -280,8 +241,8 @@
                 data.empleados.forEach(emp => {
                     const tr = document.createElement('tr'); tr.className = "hover:bg-blue-50 border-b border-gray-100";
                     tr.innerHTML = `<td class="px-4 py-3 text-sm font-bold text-gray-800 bg-white border-r">
-                        <div class="truncate w-40">${emp.nombres_apellidos}</div>
-                        <div class="text-[10px] text-blue-600 mt-1">P00: ${emp.p00}</div></td>`;
+                        <div class="truncate w-44" title="${emp.nombres_apellidos}">${emp.nombres_apellidos}</div>
+                        <div class="text-[10px] text-gray-500 mt-1 truncate w-44" title="${emp.unidad}"><span class="text-blue-600 bg-blue-50 px-1 rounded mr-1">P00: ${emp.p00}</span> ${emp.unidad}</div></td>`;
                     
                     fechas7.forEach(f => {
                         const td = document.createElement('td'); td.className = "px-2 py-3 border-r";
@@ -296,14 +257,14 @@
                         
                         ESTATUS_PERMITIDOS.forEach(est => {
                             const opt = document.createElement('option'); opt.value = est; opt.innerText = est === "" ? "Pendiente" : est;
-                            if(bloqAus && estActual === "" && ["Vacaciones", "Reposo"].includes(est)) opt.selected = true; // Visual temp
+                            if(bloqAus && estActual === "" && ["Vacaciones", "Reposo"].includes(est)) opt.selected = true; 
                             else if(est === estActual) opt.selected = true;
                             select.appendChild(opt);
                         });
                         
                         if(select.value === "Falta Injustificada") select.classList.add("bg-red-50", "text-red-700", "font-bold");
                         if(select.value === "Asistencia Normal") select.classList.add("bg-green-50", "text-green-700");
-                        if(["Reposo", "Vacaciones"].includes(select.value)) select.classList.add("bg-purple-50", "text-purple-700", "font-bold");
+                        if(["Reposo", "Vacaciones", "Permiso otorgado"].includes(select.value)) select.classList.add("bg-purple-50", "text-purple-700", "font-bold");
 
                         select.onchange = (e) => registrarDiaVuelo(emp.p00, f, e.target.value, select);
                         td.appendChild(select); tr.appendChild(td);
@@ -341,7 +302,7 @@
         }
 
         async function enviarReporteRRHH() {
-            if(!confirm("¿Certificar reporte? Se bloqueará la edición.")) return;
+            if(!confirm("¿Certificar reporte? Se bloqueará la edición de esta jurisdicción.")) return;
             const btn = document.getElementById('btn-enviar-rrhh'); btn.disabled = true;
             try {
                 const res = await fetch(`${API_BASE}/api/enviar-a-rrhh`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ unidad_nombre: currentUser, rol_usuario: currentRole }) });
@@ -350,9 +311,6 @@
             } catch (e) { alert("Error."); btn.disabled = false; }
         }
 
-        // ==========================
-        // LÓGICA DE RRHH
-        // ==========================
         async function importarMaestroRRHH() {
             const fileInput = document.getElementById('file-master');
             if(!fileInput.files[0]) return alert("Seleccione el Excel Maestro.");
@@ -371,19 +329,30 @@
                 const data = await res.json();
                 const tbody = document.getElementById('tabla-usuarios-body'); tbody.innerHTML = "";
                 data.forEach(u => {
-                    tbody.innerHTML += `<tr class="border-b"><td class="py-1 px-2 font-bold">${u.username}</td><td class="py-1 text-gray-500">${u.rol}</td><td class="py-1 text-right"><button onclick="eliminarUsuario('${u.username}')" class="text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></button></td></tr>`;
+                    let scope = "";
+                    if(u.gerencia_general) scope += `GG: ${u.gerencia_general} `;
+                    if(u.unidad_administrativa) scope += `| UA: ${u.unidad_administrativa}`;
+                    if(!scope) scope = "GLOBAL";
+
+                    tbody.innerHTML += `<tr class="border-b"><td class="py-2 px-2 font-bold">${u.username}<div class="text-[10px] text-gray-400 font-normal truncate w-40" title="${scope}">${scope}</div></td><td class="py-2 text-blue-600">${u.rol}</td><td class="py-2 text-right"><button onclick="eliminarUsuario('${u.username}')" class="text-red-500 hover:text-red-700"><i class="fa-solid fa-trash"></i></button></td></tr>`;
                 });
             } catch(e) { console.error("Error usuarios"); }
         }
 
         async function crearUsuario(e) {
             e.preventDefault();
-            const u = document.getElementById('usr_nombre').value; const p = document.getElementById('usr_pass').value; const r = document.getElementById('usr_rol').value;
+            const payload = {
+                username: document.getElementById('usr_nombre').value,
+                password: document.getElementById('usr_pass').value,
+                rol: document.getElementById('usr_rol').value,
+                gerencia_general: document.getElementById('usr_gerencia').value,
+                unidad_administrativa: document.getElementById('usr_unidad').value
+            };
             try {
-                const res = await fetch(`${API_BASE}/api/rrhh/usuarios`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username: u, password: p, rol: r}) });
+                const res = await fetch(`${API_BASE}/api/rrhh/usuarios`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
                 if(res.ok) { document.getElementById('form-usuarios').reset(); cargarUsuariosRRHH(); }
                 else { const data = await res.json(); alert(data.detail); }
-            } catch(e) { alert("Error."); }
+            } catch(e) { alert("Error de red."); }
         }
 
         async function eliminarUsuario(username) {
@@ -421,7 +390,7 @@
                 const res = await fetch(`${API_BASE}/api/rrhh/descargar-consolidado`);
                 if(!res.ok) { const err = await res.json(); return alert(err.detail); }
                 const blob = await res.blob(); const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.style.display = 'none'; a.href = url; a.download = "Nomina.xlsx";
+                const a = document.createElement('a'); a.style.display = 'none'; a.href = url; a.download = "Nomina_Asistencia.xlsx";
                 document.body.appendChild(a); a.click(); window.URL.revokeObjectURL(url);
             } catch(e) { alert("Error de descarga."); }
         }
