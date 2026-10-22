@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title="Asistencia Movilnet ERP v4.7")
+app = FastAPI(title="Asistencia Movilnet ERP v4.8")
 
 app.add_middleware(
     CORSMiddleware,
@@ -292,7 +292,7 @@ async def cargar_empleados_excel_unidad(username: str = Form(...), file: UploadF
         raise HTTPException(status_code=400, detail=str(e))
 
 # ==========================================
-# 4. CONTROL DE ASISTENCIA DIARIA (AUDITORÍA DUAL)
+# 4. CONTROL DE ASISTENCIA DIARIA
 # ==========================================
 @app.get("/api/mi-asistencia/{username}")
 def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
@@ -379,10 +379,15 @@ def guardar_dia(req: AsistenciaDiaRequest, db = Depends(get_db)):
         if not cursor.fetchone():
             raise HTTPException(status_code=403, detail="Error: No puede editar personal que no está en su plantilla local.")
 
-    cursor.execute("""
-        INSERT INTO asistencia_diaria (p00, fecha, estatus, motivo) VALUES (%s, %s, %s, %s)
-        ON CONFLICT (p00, fecha) DO UPDATE SET estatus = EXCLUDED.estatus, motivo = EXCLUDED.motivo
-    """, (req.p00, req.fecha, req.estatus, req.motivo))
+    if req.estatus == "":
+        # SOLUCIÓN: Si eligen "Pendiente", eliminamos el registro para que cuente como falta de dato en la auditoría
+        cursor.execute("DELETE FROM asistencia_diaria WHERE p00 = %s AND fecha = %s", (req.p00, req.fecha))
+    else:
+        cursor.execute("""
+            INSERT INTO asistencia_diaria (p00, fecha, estatus, motivo) VALUES (%s, %s, %s, %s)
+            ON CONFLICT (p00, fecha) DO UPDATE SET estatus = EXCLUDED.estatus, motivo = EXCLUDED.motivo
+        """, (req.p00, req.fecha, req.estatus, req.motivo))
+        
     db.commit()
     return {"success": True}
 
