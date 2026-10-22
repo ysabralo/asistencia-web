@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title="Asistencia Movilnet ERP v4.4")
+app = FastAPI(title="Asistencia Movilnet ERP v4.5")
 
 app.add_middleware(
     CORSMiddleware,
@@ -35,7 +35,7 @@ def get_db():
     finally:
         conn.close()
 
-# NUEVO ESTATUS INCLUIDO: Teletrabajo
+# TELETRABAJO INCLUIDO EN LAS REGLAS DE NEGOCIO
 ESTATUS_PERMITIDOS = [
     "Asistencia Normal", "Teletrabajo", "Reposo", "Vacaciones", 
     "Permiso otorgado", "Falta Injustificada", 
@@ -66,10 +66,6 @@ class EnvioRRHHRequest(BaseModel):
 class EmpleadoUnidadRequest(BaseModel):
     username: str
     p00: str
-    cedula: str
-    nombres_apellidos: str
-    fecha_ingreso: str
-    gerencia_general: Optional[str] = ""
 
 # ==========================================
 # 1. GESTIÓN DE USUARIOS Y ROLES
@@ -78,7 +74,6 @@ class EmpleadoUnidadRequest(BaseModel):
 def login(req: LoginRequest, db = Depends(get_db)):
     cursor = db.cursor()
     pwd_hash = hashlib.sha256(req.password.encode()).hexdigest()
-    
     if req.username == "admin" and req.password == "admin":
         cursor.execute("SELECT id FROM usuarios WHERE username = 'admin'")
         if not cursor.fetchone():
@@ -106,21 +101,21 @@ def crear_usuario(req: UsuarioRequest, db = Depends(get_db)):
             VALUES (%s, %s, %s, %s, %s)
         """, (req.username, pwd_hash, req.rol, req.unidad_administrativa, req.gerencia_general))
         db.commit()
-        return {"success": True, "mensaje": "Usuario creado exitosamente con su jurisdicción."}
+        return {"success": True, "mensaje": "Usuario creado exitosamente."}
     except psycopg.errors.UniqueViolation:
         db.rollback()
-        raise HTTPException(status_code=400, detail="El nombre de usuario ya existe")
+        raise HTTPException(status_code=400, detail="El usuario ya existe")
 
 @app.delete("/api/rrhh/usuarios/{username}")
 def eliminar_usuario(username: str, db = Depends(get_db)):
-    if username == "admin": raise HTTPException(status_code=400, detail="No se puede eliminar el administrador")
+    if username == "admin": raise HTTPException(status_code=400, detail="No se puede eliminar al administrador")
     cursor = db.cursor()
     cursor.execute("DELETE FROM usuarios WHERE username = %s", (username,))
     db.commit()
     return {"success": True, "mensaje": "Usuario eliminado"}
 
 # ==========================================
-# 2. CARGA DE ESTRUCTURA Y NÓMINA (EXCEL RRHH)
+# 2. CARGA DE ESTRUCTURA Y NÓMINA (RRHH)
 # ==========================================
 @app.post("/api/rrhh/cargar-organizacion")
 async def cargar_organizacion(file: UploadFile = File(...), db = Depends(get_db)):
@@ -229,70 +224,81 @@ async def cargar_maestro(file: UploadFile = File(...), db = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 # ==========================================
-# 3. GESTIÓN AUTÓNOMA DE PERSONAL (UNIDADES)
+# 3. GESTIÓN AUTÓNOMA Y VALIDACIÓN CRUZADA
 # ==========================================
 @app.post("/api/unidad/agregar-empleado")
 def agregar_empleado_unidad(req: EmpleadoUnidadRequest, db = Depends(get_db)):
-    """ Endpoint para carga manual de empleado según jurisdicción """
+    """ Incorporación manual validando solo el P00 contra RRHH y Jurisdicción """
     cursor = db.cursor()
     cursor.execute("SELECT unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (req.username,))
     usr = cursor.fetchone()
     if not usr: raise HTTPException(status_code=404, detail="Usuario no encontrado")
     
-    ua = usr['unidad_administrativa']
-    gg = usr['gerencia_general'] if usr['gerencia_general'] else req.gerencia_general
+    # Validar existencia en RRHH
+    cursor.execute("SELECT unidad_administrativa, gerencia_general, nombres_apellidos FROM empleados_maestro WHERE p00 = %s AND estatus = 'Activo'", (req.p00,))
+    emp = cursor.fetchone()
     
-    if not ua: raise HTTPException(status_code=400, detail="Su usuario no posee una Unidad Administrativa asignada.")
-    if not gg: raise HTTPException(status_code=400, detail="Debe especificar la Gerencia General del empleado.")
+    if not emp: 
+        raise HTTPException(status_code=400, detail=f"El P00 {req.p00} no existe en la base de datos de RRHH o no está Activo.")
+        
+    # Validación Cruzada Jurisdiccional
+    if usr['unidad_administrativa'] and emp['unidad_administrativa'] != usr['unidad_administrativa']:
+        raise HTTPException(status_code=400, detail=f"Bloqueado: El empleado pertenece a la Unidad '{emp['unidad_administrativa']}'.")
+    if usr['gerencia_general'] and emp['gerencia_general'] != usr['gerencia_general']:
+        raise HTTPException(status_code=400, detail=f"Bloqueado: El empleado pertenece a la Gerencia '{emp['gerencia_general']}'.")
 
-    cursor.execute("INSERT INTO organizacion (unidad_administrativa, gerencia_general) VALUES (%s, %s) ON CONFLICT DO NOTHING", (ua, gg))
-
+    # Guardar en la plantilla local de este usuario
     try:
-        cursor.execute("""
-            INSERT INTO empleados_maestro (p00, cedula, nombres_apellidos, fecha_ingreso, unidad_administrativa, gerencia_general, estatus)
-            VALUES (%s, %s, %s, %s, %s, %s, 'Activo')
-            ON CONFLICT (p00) DO UPDATE SET unidad_administrativa = EXCLUDED.unidad_administrativa, gerencia_general = EXCLUDED.gerencia_general, estatus = 'Activo'
-        """, (req.p00, req.cedula, req.nombres_apellidos, req.fecha_ingreso, ua, gg))
+        cursor.execute("INSERT INTO plantilla_local (username, p00) VALUES (%s, %s) ON CONFLICT DO NOTHING", (req.username, req.p00))
         db.commit()
-        return {"success": True, "mensaje": "Empleado agregado a su plantilla local."}
+        return {"success": True, "mensaje": f"{emp['nombres_apellidos']} asignado a su personal a cargo."}
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Error vinculando al empleado.")
 
 @app.post("/api/unidad/cargar-empleados-excel")
 async def cargar_empleados_excel_unidad(username: str = Form(...), file: UploadFile = File(...), db = Depends(get_db)):
-    """ Endpoint para carga masiva (Excel) descentralizada """
+    """ Carga masiva descentralizada de P00s """
     cursor = db.cursor()
     cursor.execute("SELECT unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (username,))
     usr = cursor.fetchone()
-    if not usr: raise HTTPException(status_code=404, detail="Usuario no encontrado")
     
-    ua = usr['unidad_administrativa']
-    user_gg = usr['gerencia_general']
-
     try:
         contents = await file.read()
         df = pd.read_excel(io.BytesIO(contents))
+        
+        if 'P00' not in df.columns:
+            raise HTTPException(status_code=400, detail="El archivo Excel debe tener una única columna llamada 'P00'.")
+
         cargas = 0
+        errores = []
+
         for _, fila in df.iterrows():
             p00 = str(fila['P00']).strip()
             if p00 and p00 != 'nan':
-                cedula = str(fila['Cedula']).strip()
-                nombres = str(fila['Nombres_Apellidos']).strip()
-                f_ingreso = pd.to_datetime(fila['Fecha_Ingreso']).strftime('%Y-%m-%d')
+                cursor.execute("SELECT unidad_administrativa, gerencia_general FROM empleados_maestro WHERE p00 = %s AND estatus = 'Activo'", (p00,))
+                emp = cursor.fetchone()
                 
-                gg = user_gg if user_gg else str(fila.get('Gerencia_General', '')).strip()
-                if not gg or gg == 'nan': continue
-                        
-                cursor.execute("INSERT INTO organizacion (unidad_administrativa, gerencia_general) VALUES (%s, %s) ON CONFLICT DO NOTHING", (ua, gg))
-                cursor.execute("""
-                    INSERT INTO empleados_maestro (p00, cedula, nombres_apellidos, fecha_ingreso, unidad_administrativa, gerencia_general, estatus)
-                    VALUES (%s, %s, %s, %s, %s, %s, 'Activo')
-                    ON CONFLICT (p00) DO UPDATE SET unidad_administrativa = EXCLUDED.unidad_administrativa, gerencia_general = EXCLUDED.gerencia_general, estatus = 'Activo'
-                """, (p00, cedula, nombres, f_ingreso, ua, gg))
+                if not emp:
+                    errores.append(f"{p00} (No existe/Inactivo)")
+                    continue
+                
+                # Validación Cruzada
+                if usr['unidad_administrativa'] and emp['unidad_administrativa'] != usr['unidad_administrativa']:
+                    errores.append(f"{p00} (Pertenece a otra VP)")
+                    continue
+                if usr['gerencia_general'] and emp['gerencia_general'] != usr['gerencia_general']:
+                    errores.append(f"{p00} (Pertenece a otra GG)")
+                    continue
+                    
+                cursor.execute("INSERT INTO plantilla_local (username, p00) VALUES (%s, %s) ON CONFLICT DO NOTHING", (username, p00))
                 cargas += 1
+                
         db.commit()
-        return {"success": True, "mensaje": f"Se integraron {cargas} empleados a su plantilla."}
+        msg = f"Se integraron {cargas} empleados a su plantilla local."
+        if errores:
+            msg += f"\nRechazados por jurisdicción o inexistentes: {len(errores)}"
+        return {"success": True, "mensaje": msg}
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=f"Error validando archivo local: {str(e)}")
@@ -309,7 +315,7 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
         
     semana_ini, semana_fin = config['semana_inicio'], config['semana_fin']
 
-    cursor.execute("SELECT unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (username,))
+    cursor.execute("SELECT rol, unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (username,))
     usr = cursor.fetchone()
     if not usr: raise HTTPException(status_code=404, detail="Usuario no encontrado")
 
@@ -321,12 +327,19 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
     """
     params = [semana_ini, semana_fin]
     
-    if usr['unidad_administrativa']:
-        query_emp += " AND e.unidad_administrativa = %s"
-        params.append(usr['unidad_administrativa'])
-    if usr['gerencia_general']:
-        query_emp += " AND e.gerencia_general = %s"
-        params.append(usr['gerencia_general'])
+    # LÓGICA DE VISIBILIDAD DE ROLES
+    if usr['rol'] == 'Reportador':
+        # El Reportador solo ve su sub-lista específica local
+        query_emp += " AND e.p00 IN (SELECT p00 FROM plantilla_local WHERE username = %s)"
+        params.append(username)
+    else:
+        # El Cierre de Unidad ve a TODOS los que pertenezcan a su jurisdicción automáticamente
+        if usr['unidad_administrativa']:
+            query_emp += " AND e.unidad_administrativa = %s"
+            params.append(usr['unidad_administrativa'])
+        if usr['gerencia_general']:
+            query_emp += " AND e.gerencia_general = %s"
+            params.append(usr['gerencia_general'])
         
     query_emp += " ORDER BY e.unidad_administrativa ASC, e.gerencia_general ASC, e.nombres_apellidos ASC, a.fecha ASC"
     
@@ -335,13 +348,7 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
     
     cursor.execute("SELECT p00, tipo_ausentismo, fecha_inicio, fecha_fin FROM ausentismos_rrhh WHERE fecha_inicio <= %s AND fecha_fin >= %s", (semana_fin, semana_ini))
     ausentismos_raw = cursor.fetchall()
-    
-    ausentismos_fijos = []
-    for a in ausentismos_raw:
-        ausentismos_fijos.append({
-            "p00": a['p00'], "tipo_ausentismo": a['tipo_ausentismo'],
-            "fecha_inicio": a['fecha_inicio'].strftime('%Y-%m-%d'), "fecha_fin": a['fecha_fin'].strftime('%Y-%m-%d')
-        })
+    ausentismos_fijos = [{"p00": a['p00'], "tipo_ausentismo": a['tipo_ausentismo'], "fecha_inicio": a['fecha_inicio'].strftime('%Y-%m-%d'), "fecha_fin": a['fecha_fin'].strftime('%Y-%m-%d')} for a in ausentismos_raw]
     
     empleados_dict = {}
     for reg in registros:
@@ -349,8 +356,7 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
         if p00 not in empleados_dict:
             empleados_dict[p00] = {
                 "p00": p00, "nombres_apellidos": reg['nombres_apellidos'], 
-                "unidad": reg['unidad_administrativa'], "gerencia": reg['gerencia_general'], 
-                "asistencia": {}
+                "unidad": reg['unidad_administrativa'], "gerencia": reg['gerencia_general'], "asistencia": {}
             }
         if reg['fecha']: 
             fecha_str = reg['fecha'].strftime('%Y-%m-%d')
