@@ -13,15 +13,10 @@
     <nav id="navbar" class="bg-blue-900 text-white shadow-lg view-hidden">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
-                <div class="flex items-center">
-                    <i class="fa-solid fa-sitemap text-2xl mr-3"></i>
-                    <span class="font-bold text-xl tracking-wide">Movilnet ERP</span>
-                </div>
+                <div class="flex items-center"><i class="fa-solid fa-sitemap text-2xl mr-3"></i><span class="font-bold text-xl tracking-wide">Movilnet ERP</span></div>
                 <div class="flex items-center space-x-4">
                     <span id="nav-user-info" class="text-sm font-medium bg-blue-800 px-4 py-1.5 rounded-full border border-blue-700"></span>
-                    <button onclick="cerrarSesion()" class="hover:bg-red-600 bg-red-500 px-4 py-1.5 rounded-full transition text-sm font-bold shadow">
-                        <i class="fa-solid fa-right-from-bracket mr-1"></i> Salir
-                    </button>
+                    <button onclick="cerrarSesion()" class="hover:bg-red-600 bg-red-500 px-4 py-1.5 rounded-full transition text-sm font-bold shadow"><i class="fa-solid fa-right-from-bracket mr-1"></i> Salir</button>
                 </div>
             </div>
         </div>
@@ -48,7 +43,7 @@
             
             <div class="bg-white rounded-xl shadow-md p-6 flex flex-col md:flex-row justify-between items-center border-l-4 border-blue-600">
                 <div>
-                    <h1 class="text-2xl font-bold text-gray-800">Control de Asistencia Local</h1>
+                    <h1 class="text-2xl font-bold text-gray-800">Control de Asistencia</h1>
                     <p id="unidad-rango-fechas" class="text-gray-600 mt-1 font-medium"><i class="fa-regular fa-calendar text-blue-600 mr-2"></i>Cargando...</p>
                 </div>
                 <div class="mt-4 md:mt-0 text-center md:text-right bg-gray-50 p-3 rounded-lg border border-gray-200 min-w-[250px]">
@@ -60,28 +55,24 @@
                 </div>
             </div>
 
-            <!-- NUEVA TARJETA: GESTIÓN DE PERSONAL LOCAL -->
-            <div class="bg-white rounded-xl shadow-md p-6 border border-gray-200">
-                <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-user-plus text-blue-600 mr-2"></i>Gestión de Personal a Cargo</h2>
+            <!-- GESTIÓN DE PERSONAL LOCAL -->
+            <div class="bg-white rounded-xl shadow-md p-6 border border-gray-200" id="panel-gestion-personal">
+                <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-user-check text-blue-600 mr-2"></i>Reclamar Personal a Cargo</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="bg-gray-50 p-4 rounded border border-gray-200 shadow-sm">
                         <h3 class="font-bold text-sm text-gray-700 mb-3"><i class="fa-solid fa-keyboard text-gray-400 mr-1"></i> Incorporación Manual</h3>
-                        <form id="form-add-empleado" onsubmit="agregarEmpleadoManual(event)" class="space-y-2">
-                            <input type="text" id="add_p00" placeholder="P00 (Ej: 212345)" class="w-full p-2 text-xs border rounded outline-none" required>
-                            <input type="text" id="add_cedula" placeholder="Cédula" class="w-full p-2 text-xs border rounded outline-none" required>
-                            <input type="text" id="add_nombres" placeholder="Nombres y Apellidos" class="w-full p-2 text-xs border rounded outline-none" required>
-                            <input type="date" id="add_fecha" class="w-full p-2 text-xs border rounded outline-none" required title="Fecha de Ingreso">
-                            <input type="text" id="add_gg" placeholder="Gerencia Destino (Solo si es VP General)" class="w-full p-2 text-xs border rounded outline-none">
-                            <button type="submit" id="btn-add-manual" class="w-full bg-blue-600 text-white py-2 rounded text-xs font-bold hover:bg-blue-700 transition">Agregar Empleado a mi Estructura</button>
+                        <form id="form-add-empleado" onsubmit="agregarEmpleadoManual(event)" class="space-y-3">
+                            <input type="text" id="add_p00" placeholder="Ingrese el P00 (Ej: 212345)" class="w-full p-2.5 text-sm border rounded outline-none font-mono" required>
+                            <button type="submit" id="btn-add-manual" class="w-full bg-blue-600 text-white py-2.5 rounded text-sm font-bold hover:bg-blue-700 transition shadow">Vincular P00 a mi Plantilla</button>
                         </form>
                     </div>
                     <div class="bg-gray-50 p-4 rounded border border-gray-200 shadow-sm">
                         <h3 class="font-bold text-sm text-gray-700 mb-3"><i class="fa-solid fa-file-excel text-green-600 mr-1"></i> Carga Masiva (Excel)</h3>
-                        <input type="file" id="file-personal-unidad" accept=".xlsx" class="block w-full text-xs text-gray-500 file:mr-4 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:font-bold file:bg-blue-100 file:text-blue-700 mb-3 border bg-white cursor-pointer">
+                        <input type="file" id="file-personal-unidad" accept=".xlsx" class="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-3 file:rounded file:border-0 file:font-bold file:bg-blue-100 file:text-blue-700 mb-3 border bg-white cursor-pointer">
                         <div class="bg-blue-50 text-blue-800 text-[10px] p-2 rounded border border-blue-200 mb-3 font-medium">
-                            Obligatorio: <br>Cols: P00, Cedula, Nombres_Apellidos, Fecha_Ingreso, Gerencia_General
+                            Obligatorio: El archivo Excel debe tener 1 sola columna llamada <b>P00</b>.
                         </div>
-                        <button onclick="cargarPersonalExcel()" id="btn-add-excel" class="w-full bg-green-600 text-white py-2 rounded text-xs font-bold hover:bg-green-700 transition">Procesar Archivo Local</button>
+                        <button onclick="cargarPersonalExcel()" id="btn-add-excel" class="w-full bg-green-600 text-white py-2.5 rounded text-sm font-bold hover:bg-green-700 transition shadow">Procesar Archivo Local</button>
                     </div>
                 </div>
             </div>
@@ -103,7 +94,7 @@
                 </div>
             </div>
 
-            <!-- PANEL DE CIERRE -->
+            <!-- PANELES DE CIERRE -->
             <div id="panel-cierre-unidad" class="flex flex-col md:flex-row justify-between items-center p-5 bg-gray-50 rounded-xl shadow-inner border border-gray-200 gap-4 hidden">
                 <div class="text-sm font-medium text-gray-600"><i class="fa-solid fa-circle-info text-blue-600 mr-2"></i> Perfil autorizado para Cierre de su Jurisdicción.</div>
                 <div class="flex items-center gap-4 w-full md:w-auto">
@@ -118,7 +109,6 @@
     <!-- DASHBOARD RRHH -->
     <div id="view-rrhh" class="view-hidden flex-grow p-4 md:p-6">
         <div class="max-w-7xl mx-auto space-y-6">
-            
             <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-purple-600 flex justify-between items-center">
                 <div><h1 class="text-2xl font-bold text-gray-800">Módulo Administrativo ERP</h1><p class="text-gray-500 mt-1">Gestión Centralizada de Recursos Humanos.</p></div>
                 <div id="rrhh-badge-semana" class="bg-gray-100 text-gray-800 px-4 py-2 rounded-lg font-bold shadow-inner border border-gray-200">Consultando...</div>
@@ -126,8 +116,6 @@
             
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="space-y-6">
-                    
-                    <!-- 1. ESTRUCTURA ORGANIZATIVA -->
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                         <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-sitemap text-blue-600 mr-2"></i>1. Estructura Organizativa</h2>
                         <input type="file" id="file-estructura" accept=".xlsx" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 mb-2 border border-gray-300"/>
@@ -138,7 +126,6 @@
                         <button onclick="importarEstructuraRRHH()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 transition shadow">Cargar Estructura</button>
                     </div>
 
-                    <!-- 2. CARGA MAESTRA (SEMANA) -->
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                         <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-upload text-blue-600 mr-2"></i>2. Aperturar Semana</h2>
                         <input type="file" id="file-master" accept=".xlsx" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 mb-2 border border-gray-300"/>
@@ -149,7 +136,6 @@
                         <button onclick="importarMaestroRRHH()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 transition shadow">Procesar Excel Maestro</button>
                     </div>
 
-                    <!-- 3. GESTIÓN DE USUARIOS -->
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                         <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-users-gear text-blue-600 mr-2"></i>3. Gestión de Usuarios</h2>
                         <form id="form-usuarios" onsubmit="crearUsuario(event)" class="space-y-3">
@@ -195,7 +181,6 @@
         const API_BASE = window.location.origin; 
         let currentUser = null; let currentRole = null; let semanaData = null; let estructuraOrganizativa = {}; 
 
-        // CONSTANTES ACTUALIZADAS CON TELETRABAJO
         const ESTATUS_PERMITIDOS = ["", "Asistencia Normal", "Teletrabajo", "Reposo", "Vacaciones", "Permiso otorgado", "Falta Injustificada", "Dia Descanso Legal", "Dia Libre Compensatorio"];
 
         function mostrarVista(vistaId) {
@@ -297,7 +282,6 @@
                                 if(est === estActual) opt.selected = true; select.appendChild(opt);
                             });
                             
-                            // COLORES
                             if(estActual === "Falta Injustificada") select.classList.add("bg-red-50", "text-red-700", "font-bold", "border-red-300");
                             else if(estActual === "Asistencia Normal") select.classList.add("bg-green-50", "text-green-700", "border-green-300");
                             else if(estActual === "Teletrabajo") select.classList.add("bg-cyan-50", "text-cyan-700", "font-bold", "border-cyan-300");
@@ -350,26 +334,19 @@
         }
 
         // ==========================================
-        // INCORPORACIÓN DE PERSONAL (MANUAL Y EXCEL)
+        // AGREGAR PERSONAL LOCAL
         // ==========================================
         async function agregarEmpleadoManual(e) {
             e.preventDefault();
             const btn = document.getElementById('btn-add-manual'); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; btn.disabled = true;
-            const payload = {
-                username: currentUser,
-                p00: document.getElementById('add_p00').value,
-                cedula: document.getElementById('add_cedula').value,
-                nombres_apellidos: document.getElementById('add_nombres').value,
-                fecha_ingreso: document.getElementById('add_fecha').value,
-                gerencia_general: document.getElementById('add_gg').value
-            };
+            const payload = { username: currentUser, p00: document.getElementById('add_p00').value };
             try {
                 const res = await fetch(`${API_BASE}/api/unidad/agregar-empleado`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
                 const data = await res.json();
                 if(res.ok) { document.getElementById('form-add-empleado').reset(); cargarDatosUnidad(); }
                 else alert(data.detail);
             } catch(e) { alert("Error al registrar empleado."); }
-            btn.innerHTML = 'Agregar Empleado a mi Estructura'; btn.disabled = false;
+            btn.innerHTML = 'Vincular P00 a mi Plantilla'; btn.disabled = false;
         }
 
         async function cargarPersonalExcel() {
@@ -411,7 +388,7 @@
                 if(res.ok) {
                     estructuraOrganizativa = data.estructura;
                     const selectUA = document.getElementById('usr_unidad');
-                    selectUA.innerHTML = '<option value="">Nivel 1: Unidad Administrativa / VP (Todas)</option>';
+                    selectUA.innerHTML = '<option value="">Nivel 1: VP (Todas)</option>';
                     for(let ua in estructuraOrganizativa) { selectUA.innerHTML += `<option value="${ua}">${ua}</option>`; }
                     actualizarDropdownGerencias();
                 }
@@ -421,7 +398,7 @@
         function actualizarDropdownGerencias() {
             const selectUA = document.getElementById('usr_unidad').value;
             const selectGG = document.getElementById('usr_gerencia');
-            selectGG.innerHTML = '<option value="">Nivel 2: Gerencia General (Todas)</option>';
+            selectGG.innerHTML = '<option value="">Nivel 2: Gerencia (Todas)</option>';
             if(selectUA && estructuraOrganizativa[selectUA]) {
                 estructuraOrganizativa[selectUA].forEach(gg => { selectGG.innerHTML += `<option value="${gg}">${gg}</option>`; });
             }
