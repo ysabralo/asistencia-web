@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
+from fastapi import FastAPI, HTTPException, UploadFile, File, Depends, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title="Asistencia Movilnet ERP v4.3")
+app = FastAPI(title="Asistencia Movilnet ERP v4.4")
 
 app.add_middleware(
     CORSMiddleware,
@@ -35,8 +35,9 @@ def get_db():
     finally:
         conn.close()
 
+# NUEVO ESTATUS INCLUIDO: Teletrabajo
 ESTATUS_PERMITIDOS = [
-    "Asistencia Normal", "Reposo", "Vacaciones", 
+    "Asistencia Normal", "Teletrabajo", "Reposo", "Vacaciones", 
     "Permiso otorgado", "Falta Injustificada", 
     "Dia Descanso Legal", "Dia Libre Compensatorio"
 ]
@@ -62,6 +63,14 @@ class EnvioRRHHRequest(BaseModel):
     unidad_nombre: str
     rol_usuario: str
 
+class EmpleadoUnidadRequest(BaseModel):
+    username: str
+    p00: str
+    cedula: str
+    nombres_apellidos: str
+    fecha_ingreso: str
+    gerencia_general: Optional[str] = ""
+
 # ==========================================
 # 1. GESTIÓN DE USUARIOS Y ROLES
 # ==========================================
@@ -78,7 +87,6 @@ def login(req: LoginRequest, db = Depends(get_db)):
 
     cursor.execute("SELECT rol, username FROM usuarios WHERE username = %s AND password_hash = %s", (req.username, pwd_hash))
     user = cursor.fetchone()
-    
     if user: return {"success": True, "rol": user['rol'], "username": user['username']}
     else: raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
 
@@ -112,7 +120,7 @@ def eliminar_usuario(username: str, db = Depends(get_db)):
     return {"success": True, "mensaje": "Usuario eliminado"}
 
 # ==========================================
-# 2. CARGA DE ESTRUCTURA Y NÓMINA (EXCEL)
+# 2. CARGA DE ESTRUCTURA Y NÓMINA (EXCEL RRHH)
 # ==========================================
 @app.post("/api/rrhh/cargar-organizacion")
 async def cargar_organizacion(file: UploadFile = File(...), db = Depends(get_db)):
@@ -120,42 +128,31 @@ async def cargar_organizacion(file: UploadFile = File(...), db = Depends(get_db)
     try:
         contents = await file.read()
         df = pd.read_excel(io.BytesIO(contents))
-        
         if 'Unidad_Administrativa' not in df.columns or 'Gerencia_General' not in df.columns:
-            raise HTTPException(status_code=400, detail="El archivo Excel debe tener las columnas 'Unidad_Administrativa' y 'Gerencia_General'.")
-            
+            raise HTTPException(status_code=400, detail="Faltan columnas requeridas.")
         cargas = 0
         for _, fila in df.iterrows():
             ua = str(fila['Unidad_Administrativa']).strip()
             gg = str(fila['Gerencia_General']).strip()
             if ua and ua != 'nan' and gg and gg != 'nan':
-                cursor.execute("""
-                    INSERT INTO organizacion (unidad_administrativa, gerencia_general)
-                    VALUES (%s, %s)
-                    ON CONFLICT (unidad_administrativa, gerencia_general) DO NOTHING
-                """, (ua, gg))
+                cursor.execute("INSERT INTO organizacion (unidad_administrativa, gerencia_general) VALUES (%s, %s) ON CONFLICT DO NOTHING", (ua, gg))
                 cargas += 1
-                
         db.commit()
         return {"success": True, "mensaje": f"Estructura Oficial Actualizada.\nGerencias registradas: {cargas}"}
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error procesando archivo: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/rrhh/organizacion")
 def obtener_organizacion(db = Depends(get_db)):
     cursor = db.cursor()
     cursor.execute("SELECT unidad_administrativa, gerencia_general FROM organizacion ORDER BY unidad_administrativa ASC, gerencia_general ASC")
-    filas = cursor.fetchall()
-    
     estructura = {}
-    for f in filas:
+    for f in cursor.fetchall():
         ua = f['unidad_administrativa']
         gg = f['gerencia_general']
-        if ua not in estructura:
-            estructura[ua] = []
+        if ua not in estructura: estructura[ua] = []
         estructura[ua].append(gg)
-        
     return {"success": True, "estructura": estructura}
 
 @app.post("/api/rrhh/cargar-maestro")
@@ -164,7 +161,6 @@ async def cargar_maestro(file: UploadFile = File(...), db = Depends(get_db)):
     try:
         contents = await file.read()
         archivo_ram = io.BytesIO(contents)
-        
         df_config = pd.read_excel(archivo_ram, sheet_name="Configuracion")
         df_personal = pd.read_excel(archivo_ram, sheet_name="Personal_Activo")
         df_absentismos = pd.read_excel(archivo_ram, sheet_name="Absentismos")
@@ -172,11 +168,9 @@ async def cargar_maestro(file: UploadFile = File(...), db = Depends(get_db)):
         f_ini = pd.to_datetime(df_config['Fecha_Inicio'].iloc[0]).strftime('%Y-%m-%d')
         f_fin = pd.to_datetime(df_config['Fecha_Fin'].iloc[0]).strftime('%Y-%m-%d')
         
-        # 1. Aperturar Semana
         cursor.execute("DELETE FROM configuracion_sistema")
         cursor.execute("INSERT INTO configuracion_sistema (id, semana_inicio, semana_fin, estatus) VALUES (1, %s, %s, 'Abierta')", (f_ini, f_fin))
         
-        # 2. Cargar Personal
         nuevos_emp = 0
         for _, fila in df_personal.iterrows():
             p00 = str(fila['P00']).strip()
@@ -187,7 +181,7 @@ async def cargar_maestro(file: UploadFile = File(...), db = Depends(get_db)):
                 nombres = str(fila['Nombres_Apellidos']).strip()
                 f_ingreso = pd.to_datetime(fila['Fecha_Ingreso']).strftime('%Y-%m-%d')
                 
-                cursor.execute("INSERT INTO organizacion (unidad_administrativa, gerencia_general) VALUES (%s, %s) ON CONFLICT (unidad_administrativa, gerencia_general) DO NOTHING", (unidad, gerencia))
+                cursor.execute("INSERT INTO organizacion (unidad_administrativa, gerencia_general) VALUES (%s, %s) ON CONFLICT DO NOTHING", (unidad, gerencia))
                 cursor.execute("""
                     INSERT INTO empleados_maestro (p00, cedula, nombres_apellidos, fecha_ingreso, unidad_administrativa, gerencia_general, estatus)
                     VALUES (%s, %s, %s, %s, %s, %s, 'Activo')
@@ -195,26 +189,18 @@ async def cargar_maestro(file: UploadFile = File(...), db = Depends(get_db)):
                 """, (p00, cedula, nombres, f_ingreso, unidad, gerencia))
                 nuevos_emp += 1
 
-        # 3. Procesar Absentismos y AUTO-LLENAR Asistencia
         cursor.execute("DELETE FROM ausentismos_rrhh")
         cargas_aus = 0
-        
         estatus_map = {
-            "reposo": "Reposo",
-            "vacaciones": "Vacaciones",
-            "permiso otorgado": "Permiso otorgado",
-            "permiso": "Permiso otorgado",
-            "falta injustificada": "Falta Injustificada",
-            "falta": "Falta Injustificada"
+            "reposo": "Reposo", "vacaciones": "Vacaciones", "permiso otorgado": "Permiso otorgado",
+            "permiso": "Permiso otorgado", "falta injustificada": "Falta Injustificada", "falta": "Falta Injustificada"
         }
 
         for _, fila in df_absentismos.iterrows():
             p00 = str(fila['P00']).strip()
             if p00 and p00 != 'nan':
                 tipo_raw = str(fila['Tipo_Ausentismo']).strip()
-                # Limpiar y emparejar con el estatus exacto
                 tipo = estatus_map.get(tipo_raw.lower(), tipo_raw.capitalize())
-                
                 f_ini_aus_dt = pd.to_datetime(fila['Fecha_Inicio'])
                 f_fin_aus_dt = pd.to_datetime(fila['Fecha_Fin'])
                 
@@ -222,38 +208,97 @@ async def cargar_maestro(file: UploadFile = File(...), db = Depends(get_db)):
                                (p00, tipo, f_ini_aus_dt.strftime('%Y-%m-%d'), f_fin_aus_dt.strftime('%Y-%m-%d')))
                 cargas_aus += 1
                 
-                # Inyección automática de asistencia para RRHH (SOLO PARA LA SEMANA ACTIVA)
-                d_ini_sem = pd.to_datetime(f_ini)
-                d_fin_sem = pd.to_datetime(f_fin)
-                
+                d_ini_sem = pd.to_datetime(f_ini); d_fin_sem = pd.to_datetime(f_fin)
                 start_date = max(f_ini_aus_dt, d_ini_sem)
                 end_date = min(f_fin_aus_dt, d_fin_sem)
                 
                 if start_date <= end_date:
                     curr_date = start_date
                     while curr_date <= end_date:
-                        fecha_str = curr_date.strftime('%Y-%m-%d')
-                        # AQUÍ ESTABA EL ERROR: El orden correcto es (p00, fecha, estatus)
                         cursor.execute("""
                             INSERT INTO asistencia_diaria (p00, fecha, estatus, motivo) 
                             VALUES (%s, %s, %s, 'Cargado automáticamente por RRHH')
-                            ON CONFLICT (p00, fecha) DO UPDATE 
-                            SET estatus = EXCLUDED.estatus, motivo = EXCLUDED.motivo
-                        """, (p00, fecha_str, tipo))
+                            ON CONFLICT (p00, fecha) DO UPDATE SET estatus = EXCLUDED.estatus, motivo = EXCLUDED.motivo
+                        """, (p00, curr_date.strftime('%Y-%m-%d'), tipo))
                         curr_date += timedelta(days=1)
                 
         db.commit()
-        return {"success": True, "mensaje": f"Semana habilitada exitosamente.\nPersonal Procesado: {nuevos_emp} | Absentismos Inyectados: {cargas_aus}"}
-        
-    except KeyError as e:
-        db.rollback()
-        raise HTTPException(status_code=400, detail=f"Falta una columna o hoja: {str(e)}")
+        return {"success": True, "mensaje": f"Semana habilitada exitosamente.\nPersonal: {nuevos_emp} | Auto-llenados: {cargas_aus}"}
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error en el formato del archivo: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ==========================================
-# 3. CONTROL DE ASISTENCIA (FILTRADO DINÁMICO)
+# 3. GESTIÓN AUTÓNOMA DE PERSONAL (UNIDADES)
+# ==========================================
+@app.post("/api/unidad/agregar-empleado")
+def agregar_empleado_unidad(req: EmpleadoUnidadRequest, db = Depends(get_db)):
+    """ Endpoint para carga manual de empleado según jurisdicción """
+    cursor = db.cursor()
+    cursor.execute("SELECT unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (req.username,))
+    usr = cursor.fetchone()
+    if not usr: raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    ua = usr['unidad_administrativa']
+    gg = usr['gerencia_general'] if usr['gerencia_general'] else req.gerencia_general
+    
+    if not ua: raise HTTPException(status_code=400, detail="Su usuario no posee una Unidad Administrativa asignada.")
+    if not gg: raise HTTPException(status_code=400, detail="Debe especificar la Gerencia General del empleado.")
+
+    cursor.execute("INSERT INTO organizacion (unidad_administrativa, gerencia_general) VALUES (%s, %s) ON CONFLICT DO NOTHING", (ua, gg))
+
+    try:
+        cursor.execute("""
+            INSERT INTO empleados_maestro (p00, cedula, nombres_apellidos, fecha_ingreso, unidad_administrativa, gerencia_general, estatus)
+            VALUES (%s, %s, %s, %s, %s, %s, 'Activo')
+            ON CONFLICT (p00) DO UPDATE SET unidad_administrativa = EXCLUDED.unidad_administrativa, gerencia_general = EXCLUDED.gerencia_general, estatus = 'Activo'
+        """, (req.p00, req.cedula, req.nombres_apellidos, req.fecha_ingreso, ua, gg))
+        db.commit()
+        return {"success": True, "mensaje": "Empleado agregado a su plantilla local."}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/api/unidad/cargar-empleados-excel")
+async def cargar_empleados_excel_unidad(username: str = Form(...), file: UploadFile = File(...), db = Depends(get_db)):
+    """ Endpoint para carga masiva (Excel) descentralizada """
+    cursor = db.cursor()
+    cursor.execute("SELECT unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (username,))
+    usr = cursor.fetchone()
+    if not usr: raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    ua = usr['unidad_administrativa']
+    user_gg = usr['gerencia_general']
+
+    try:
+        contents = await file.read()
+        df = pd.read_excel(io.BytesIO(contents))
+        cargas = 0
+        for _, fila in df.iterrows():
+            p00 = str(fila['P00']).strip()
+            if p00 and p00 != 'nan':
+                cedula = str(fila['Cedula']).strip()
+                nombres = str(fila['Nombres_Apellidos']).strip()
+                f_ingreso = pd.to_datetime(fila['Fecha_Ingreso']).strftime('%Y-%m-%d')
+                
+                gg = user_gg if user_gg else str(fila.get('Gerencia_General', '')).strip()
+                if not gg or gg == 'nan': continue
+                        
+                cursor.execute("INSERT INTO organizacion (unidad_administrativa, gerencia_general) VALUES (%s, %s) ON CONFLICT DO NOTHING", (ua, gg))
+                cursor.execute("""
+                    INSERT INTO empleados_maestro (p00, cedula, nombres_apellidos, fecha_ingreso, unidad_administrativa, gerencia_general, estatus)
+                    VALUES (%s, %s, %s, %s, %s, %s, 'Activo')
+                    ON CONFLICT (p00) DO UPDATE SET unidad_administrativa = EXCLUDED.unidad_administrativa, gerencia_general = EXCLUDED.gerencia_general, estatus = 'Activo'
+                """, (p00, cedula, nombres, f_ingreso, ua, gg))
+                cargas += 1
+        db.commit()
+        return {"success": True, "mensaje": f"Se integraron {cargas} empleados a su plantilla."}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Error validando archivo local: {str(e)}")
+
+# ==========================================
+# 4. CONTROL DE ASISTENCIA DIARIA
 # ==========================================
 @app.get("/api/mi-asistencia/{username}")
 def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
@@ -291,14 +336,11 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
     cursor.execute("SELECT p00, tipo_ausentismo, fecha_inicio, fecha_fin FROM ausentismos_rrhh WHERE fecha_inicio <= %s AND fecha_fin >= %s", (semana_fin, semana_ini))
     ausentismos_raw = cursor.fetchall()
     
-    # Formatear fechas a string explícito para que el frontend las lea perfecto
     ausentismos_fijos = []
     for a in ausentismos_raw:
         ausentismos_fijos.append({
-            "p00": a['p00'],
-            "tipo_ausentismo": a['tipo_ausentismo'],
-            "fecha_inicio": a['fecha_inicio'].strftime('%Y-%m-%d'),
-            "fecha_fin": a['fecha_fin'].strftime('%Y-%m-%d')
+            "p00": a['p00'], "tipo_ausentismo": a['tipo_ausentismo'],
+            "fecha_inicio": a['fecha_inicio'].strftime('%Y-%m-%d'), "fecha_fin": a['fecha_fin'].strftime('%Y-%m-%d')
         })
     
     empleados_dict = {}
@@ -385,7 +427,7 @@ def enviar_a_rrhh(req: EnvioRRHHRequest, db = Depends(get_db)):
     return {"success": True, "mensaje": "Reporte certificado y enviado a RRHH."}
 
 # ==========================================
-# 4. EXPORTACIONES E INTERFAZ
+# 5. MONITOREO RRHH
 # ==========================================
 @app.get("/api/rrhh/monitoreo-entregas")
 def monitoreo_entregas(db = Depends(get_db)):
@@ -396,12 +438,9 @@ def monitoreo_entregas(db = Depends(get_db)):
     
     cursor.execute("""
         SELECT u.username as unidad, u.unidad_administrativa, u.gerencia_general,
-               (
-                   SELECT COUNT(e.p00) FROM empleados_maestro e 
-                   WHERE e.estatus = 'Activo' 
-                   AND (e.unidad_administrativa = u.unidad_administrativa OR u.unidad_administrativa = '' OR u.unidad_administrativa IS NULL)
-                   AND (e.gerencia_general = u.gerencia_general OR u.gerencia_general = '' OR u.gerencia_general IS NULL)
-               ) as total_empleados,
+               (SELECT COUNT(e.p00) FROM empleados_maestro e WHERE e.estatus = 'Activo' 
+                AND (e.unidad_administrativa = u.unidad_administrativa OR u.unidad_administrativa = '' OR u.unidad_administrativa IS NULL)
+                AND (e.gerencia_general = u.gerencia_general OR u.gerencia_general = '' OR u.gerencia_general IS NULL)) as total_empleados,
                ent.estatus_entrega, ent.fecha_envio
         FROM usuarios u
         LEFT JOIN estado_entregas ent ON u.username = ent.unidad_nombre AND ent.semana_inicio = %s AND ent.semana_fin = %s
