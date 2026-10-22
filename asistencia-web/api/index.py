@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title="Asistencia Movilnet ERP v4.9")
+app = FastAPI(title="Asistencia Movilnet ERP v5.0")
 
 app.add_middleware(
     CORSMiddleware,
