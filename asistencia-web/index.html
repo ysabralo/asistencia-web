@@ -8,7 +8,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>.view-hidden { display: none; }</style>
 </head>
-<body class="bg-gray-100 font-sans antialiased min-h-screen flex flex-col">
+<body class="bg-gray-100 font-sans antialiased min-h-screen flex flex-col relative">
 
     <nav id="navbar" class="bg-blue-900 text-white shadow-lg view-hidden">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -76,7 +76,7 @@
                 </div>
             </div>
 
-            <!-- PANEL DE AUDITORÍA (NUEVO) -->
+            <!-- PANEL DE AUDITORÍA -->
             <div id="panel-auditoria" class="bg-white rounded-xl shadow-md p-6 border border-gray-200 hidden">
                 <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-clipboard-check text-blue-600 mr-2"></i>Auditoría de Cierre de Semana</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -85,7 +85,7 @@
                 </div>
             </div>
 
-            <!-- TABLA 1: PERSONAL A CARGO (EDITABLE) -->
+            <!-- TABLA 1: PERSONAL A CARGO -->
             <div class="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
                 <div class="bg-blue-50 px-4 py-3 border-b border-blue-100"><h3 class="font-bold text-blue-800 text-sm"><i class="fa-solid fa-pen-to-square mr-2"></i>Mi Personal a Cargo (Editable)</h3></div>
                 <div class="overflow-x-auto">
@@ -96,8 +96,8 @@
                 </div>
             </div>
 
-            <!-- TABLA 2: PERSONAL EXTERNO (SOLO LECTURA PARA AUDITORÍA) -->
-            <div id="contenedor-tabla-otros" class="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200 hidden">
+            <!-- TABLA 2: PERSONAL EXTERNO -->
+            <div id="contenedor-tabla-otros" class="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200 hidden mt-6">
                 <div class="bg-gray-100 px-4 py-3 border-b border-gray-200"><h3 class="font-bold text-gray-700 text-sm"><i class="fa-solid fa-eye mr-2"></i>Personal de otras Coordinaciones (Solo Lectura)</h3></div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
@@ -108,14 +108,14 @@
             </div>
 
             <!-- PANEL DE CIERRE -->
-            <div id="panel-cierre-unidad" class="flex flex-col md:flex-row justify-between items-center p-5 bg-gray-50 rounded-xl shadow-inner border border-gray-200 gap-4 hidden">
+            <div id="panel-cierre-unidad" class="flex flex-col md:flex-row justify-between items-center p-5 bg-gray-50 rounded-xl shadow-inner border border-gray-200 gap-4 hidden mt-6">
                 <div class="text-sm font-medium text-gray-600"><i class="fa-solid fa-circle-info text-blue-600 mr-2"></i> Se habilitará el cierre cuando la Auditoría Global esté al 100%.</div>
                 <div class="flex items-center gap-4 w-full md:w-auto">
                     <div id="msg-envio" class="text-sm font-bold hidden"></div>
                     <button id="btn-enviar-rrhh" onclick="enviarReporteRRHH()" disabled class="w-full md:w-auto bg-gray-400 cursor-not-allowed text-white px-6 py-3 rounded-lg font-bold transition shadow-md"><i class="fa-solid fa-lock mr-2"></i> Certificar y Enviar a RRHH</button>
                 </div>
             </div>
-            <div id="panel-solo-lectura" class="p-4 text-center text-sm font-medium text-gray-500 bg-blue-50 rounded-xl border border-blue-100 hidden"><i class="fa-solid fa-eye text-blue-500 mr-2"></i> Perfil "Reportador". Solo edición local. Cierre bloqueado.</div>
+            <div id="panel-solo-lectura" class="p-4 text-center text-sm font-medium text-gray-500 bg-blue-50 rounded-xl border border-blue-100 hidden mt-6"><i class="fa-solid fa-eye text-blue-500 mr-2"></i> Perfil "Reportador". Solo edición local. Cierre bloqueado.</div>
         </div>
     </div>
 
@@ -132,20 +132,12 @@
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                         <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-sitemap text-blue-600 mr-2"></i>1. Estructura Organizativa</h2>
                         <input type="file" id="file-estructura" accept=".xlsx" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 mb-2 border border-gray-300"/>
-                        <div class="bg-yellow-50 text-yellow-800 text-xs p-3 rounded border border-yellow-200 mb-4">
-                            <p class="font-bold mb-1"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Formato (Hoja Única)</p>
-                            <p class="text-[10px]">Columnas: <b>Unidad_Administrativa</b> y <b>Gerencia_General</b></p>
-                        </div>
                         <button onclick="importarEstructuraRRHH()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 transition shadow">Cargar Estructura</button>
                     </div>
 
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                         <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-upload text-blue-600 mr-2"></i>2. Aperturar Semana</h2>
                         <input type="file" id="file-master" accept=".xlsx" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 mb-2 border border-gray-300"/>
-                        <div class="bg-yellow-50 text-yellow-800 text-[10px] p-3 rounded border border-yellow-200 mb-4">
-                            <p class="font-bold text-xs mb-1">3 Hojas Exactas Requeridas:</p>
-                            <b>Configuracion</b> (Fecha_Inicio, Fecha_Fin)<br><b>Personal_Activo</b> (P00, Cedula, Nombres_Apellidos, Fecha_Ingreso, Unidad_Administrativa, Gerencia_General)<br><b>Absentismos</b> (P00, Tipo_Ausentismo, Fecha_Inicio, Fecha_Fin)
-                        </div>
                         <button onclick="importarMaestroRRHH()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 transition shadow">Procesar Excel Maestro</button>
                     </div>
 
@@ -190,9 +182,38 @@
         </div>
     </div>
 
+    <!-- MODAL DE REPOSO MULTI-DÍA -->
+    <div id="modal-reposo" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
+            <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-notes-medical text-blue-600 mr-2"></i>Registrar Reposo Médico</h3>
+            <form id="form-reposo" onsubmit="guardarReposoRango(event)" class="space-y-4">
+                <input type="hidden" id="rep_p00">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">Fecha de Inicio</label>
+                        <input type="date" id="rep_inicio" class="w-full p-2 border rounded text-sm outline-none" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">Fecha de Fin</label>
+                        <input type="date" id="rep_fin" class="w-full p-2 border rounded text-sm outline-none" required>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">Motivo / Diagnóstico</label>
+                    <input type="text" id="rep_motivo" class="w-full p-2 border rounded text-sm outline-none" required placeholder="Ej: Reposo pre-natal, Virosis...">
+                </div>
+                <div class="flex justify-end space-x-3 pt-2">
+                    <button type="button" onclick="cerrarModalReposo()" class="px-4 py-2 bg-gray-200 text-gray-800 rounded font-bold hover:bg-gray-300 text-sm transition">Cancelar</button>
+                    <button type="submit" id="btn-save-reposo" class="px-4 py-2 bg-blue-600 text-white rounded font-bold hover:bg-blue-700 text-sm shadow transition">Guardar Rango</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         const API_BASE = window.location.origin; 
         let currentUser = null; let currentRole = null; let semanaData = null; let estructuraOrganizativa = {}; 
+
         const ESTATUS_PERMITIDOS = ["", "Asistencia Normal", "Teletrabajo", "Reposo", "Vacaciones", "Permiso otorgado", "Falta Injustificada", "Dia Descanso Legal", "Dia Libre Compensatorio"];
 
         function mostrarVista(vistaId) {
@@ -272,7 +293,6 @@
                 let curr = new Date(data.fecha_inicio + "T12:00:00"); let fin = new Date(data.fecha_fin + "T12:00:00");
                 while(curr <= fin) { fechas7.push(curr.toISOString().split('T')[0]); curr.setDate(curr.getDate() + 1); }
                 
-                // Configurar Cabeceras
                 document.getElementById('thead-mios').innerHTML = armarCabeceraFechas(fechas7.slice(0, 7));
                 document.getElementById('thead-otros').innerHTML = armarCabeceraFechas(fechas7.slice(0, 7));
 
@@ -311,7 +331,7 @@
                             diasLlenos++;
                         } else {
                             if(estActual !== "") diasLlenos++;
-                            else diasFaltantesEmp++; // Sumar a faltantes
+                            else diasFaltantesEmp++;
                             
                             if(semanaData.locked || !emp.editable) { 
                                 select.disabled = true; select.classList.add("cursor-not-allowed", "opacity-90"); 
@@ -323,7 +343,6 @@
                                 if(est === estActual) opt.selected = true; select.appendChild(opt);
                             });
                             
-                            // COLORES
                             if(estActual === "Falta Injustificada") select.classList.add("bg-red-50", "text-red-700", "font-bold", "border-red-300");
                             else if(estActual === "Asistencia Normal") select.classList.add("bg-green-50", "text-green-700", "border-green-300");
                             else if(estActual === "Teletrabajo") select.classList.add("bg-cyan-50", "text-cyan-700", "font-bold", "border-cyan-300");
@@ -340,29 +359,24 @@
                         td.appendChild(select); tr.appendChild(td);
                     });
 
-                    // Auditoría: Separar en las dos tablas
                     if (emp.editable) {
-                        tbodyMios.appendChild(tr);
-                        miosCount++;
+                        tbodyMios.appendChild(tr); miosCount++;
                         if (diasFaltantesEmp > 0) faltantesMios.push({nombre: emp.nombres_apellidos, dias: diasFaltantesEmp});
                     } else {
-                        tbodyOtros.appendChild(tr);
-                        otrosCount++;
+                        tbodyOtros.appendChild(tr); otrosCount++;
                         if (diasFaltantesEmp > 0) faltantesOtros.push({nombre: emp.nombres_apellidos, gerencia: emp.gerencia, dias: diasFaltantesEmp});
                     }
                 });
 
-                if (miosCount === 0) tbodyMios.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-gray-500">No ha reclamado personal. Use el panel de Gestión para vincular sus P00.</td></tr>';
+                if (miosCount === 0) tbodyMios.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-gray-500">No ha reclamado personal. Use el panel superior para vincular sus P00.</td></tr>';
                 if (otrosCount === 0) {
                     tbodyOtros.innerHTML = '<tr><td colspan="8" class="px-6 py-6 text-center text-gray-500">No hay personal externo en su jurisdicción.</td></tr>';
                 } else if (currentRole === 'Cierre de Unidad') {
                     document.getElementById('contenedor-tabla-otros').classList.remove('hidden');
                 }
 
-                // Renderizar Panel de Auditoría
                 renderAuditoria(faltantesMios, faltantesOtros, miosCount, otrosCount);
 
-                // Barra de Progreso Global
                 const bar = document.getElementById('progress-bar'); const txt = document.getElementById('progress-text');
                 const btn = document.getElementById('btn-enviar-rrhh'); const msgBox = document.getElementById('msg-envio');
                 let pct = diasTotales > 0 ? Math.round((diasLlenos / diasTotales) * 100) : 0;
@@ -387,50 +401,85 @@
             const divMios = document.getElementById('audit-mios');
             const divOtros = document.getElementById('audit-otros');
             
-            // Columna 1: Mi Personal
             let htmlMios = `<h3 class="font-bold text-sm text-gray-700 mb-2"><i class="fa-solid fa-user-edit text-blue-500 mr-1"></i> Mi Personal Editable (${miosCount})</h3>`;
-            if (miosCount === 0) {
-                htmlMios += `<div class="text-gray-500 text-xs italic">Sin personal asignado.</div>`;
-            } else if (faltantesMios.length === 0) {
-                htmlMios += `<div class="text-green-600 text-sm font-bold bg-green-50 p-2 rounded border border-green-200"><i class="fa-solid fa-check-circle mr-1"></i> ¡100% Completado!</div>`;
-            } else {
-                htmlMios += `<div class="text-red-600 text-sm font-bold mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Faltan ${faltantesMios.length} empleados por completar:</div><ul class="text-xs text-gray-600 list-disc pl-5 space-y-1">`;
-                faltantesMios.forEach(f => htmlMios += `<li><b>${f.nombre}</b> <span class="text-red-500">(${f.dias} días sin estatus)</span></li>`);
+            if (miosCount === 0) htmlMios += `<div class="text-gray-500 text-xs italic">Sin personal asignado.</div>`;
+            else if (faltantesMios.length === 0) htmlMios += `<div class="text-green-600 text-sm font-bold bg-green-50 p-2 rounded border border-green-200"><i class="fa-solid fa-check-circle mr-1"></i> ¡100% Completado!</div>`;
+            else {
+                htmlMios += `<div class="text-red-600 text-sm font-bold mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Faltan ${faltantesMios.length} por completar:</div><ul class="text-xs text-gray-600 list-disc pl-5 space-y-1">`;
+                faltantesMios.forEach(f => htmlMios += `<li><b>${f.nombre}</b> <span class="text-red-500">(${f.dias} días pendientes)</span></li>`);
                 htmlMios += `</ul>`;
             }
             divMios.innerHTML = htmlMios;
 
-            // Columna 2: Resto de la Jurisdicción (Solo Cierre de Unidad)
             if (currentRole === 'Cierre de Unidad') {
                 divOtros.classList.remove('hidden');
                 let htmlOtros = `<h3 class="font-bold text-sm text-gray-700 mb-2"><i class="fa-solid fa-users text-purple-500 mr-1"></i> Resto de la Jurisdicción (${otrosCount})</h3>`;
-                if (otrosCount === 0) {
-                    htmlOtros += `<div class="text-gray-500 text-xs italic">No hay personal externo.</div>`;
-                } else if(faltantesOtros.length === 0) {
-                    htmlOtros += `<div class="text-green-600 text-sm font-bold bg-green-50 p-2 rounded border border-green-200"><i class="fa-solid fa-check-circle mr-1"></i> ¡100% Reportado por terceros!</div>`;
-                } else {
-                    htmlOtros += `<div class="text-orange-600 text-sm font-bold mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Faltan ${faltantesOtros.length} empleados reportados por otros:</div><ul class="text-xs text-gray-600 list-disc pl-5 space-y-1">`;
+                if (otrosCount === 0) htmlOtros += `<div class="text-gray-500 text-xs italic">No hay personal externo.</div>`;
+                else if(faltantesOtros.length === 0) htmlOtros += `<div class="text-green-600 text-sm font-bold bg-green-50 p-2 rounded border border-green-200"><i class="fa-solid fa-check-circle mr-1"></i> ¡100% Reportado por terceros!</div>`;
+                else {
+                    htmlOtros += `<div class="text-orange-600 text-sm font-bold mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Faltan ${faltantesOtros.length} reportados por otros:</div><ul class="text-xs text-gray-600 list-disc pl-5 space-y-1">`;
                     faltantesOtros.forEach(f => htmlOtros += `<li><b>${f.nombre}</b> <span class="text-[10px] text-gray-400">(${f.gerencia})</span> <span class="text-orange-500 font-bold">- faltan ${f.dias} días</span></li>`);
                     htmlOtros += `</ul>`;
                 }
                 divOtros.innerHTML = htmlOtros;
-            } else {
-                divOtros.classList.add('hidden');
-            }
+            } else { divOtros.classList.add('hidden'); }
         }
+
+        // ==========================================
+        // GUARDADO DE ASISTENCIA Y MODAL
+        // ==========================================
+        let tempSelectForReposo = null;
 
         async function registrarDiaVuelo(p00, fecha, estatus, selectElement) {
             let motivo = "";
             if(estatus === "Falta Injustificada") {
                 motivo = prompt("Indique motivo legal de la falta:");
                 if(!motivo) { cargarDatosUnidad(); return; }
+            } else if(estatus === "Permiso otorgado") {
+                motivo = prompt("Indique el motivo del Permiso Otorgado:");
+                if(!motivo) { cargarDatosUnidad(); return; }
+            } else if(estatus === "Reposo") {
+                document.getElementById('modal-reposo').classList.remove('hidden');
+                document.getElementById('rep_p00').value = p00;
+                document.getElementById('rep_inicio').value = fecha; 
+                document.getElementById('rep_fin').value = fecha; 
+                document.getElementById('rep_motivo').value = "";
+                tempSelectForReposo = selectElement;
+                return; // Se detiene aquí. El guardado lo hace el Modal
             }
+
             try {
                 const payload = { username: currentUser, p00: p00, fecha: fecha, estatus: estatus, motivo: motivo };
                 const res = await fetch(`${API_BASE}/api/guardar-dia`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
                 if(!res.ok) { const err = await res.json(); alert(err.detail); }
                 cargarDatosUnidad(); 
             } catch(e) { alert("Error de red."); cargarDatosUnidad(); }
+        }
+
+        function cerrarModalReposo() {
+            document.getElementById('modal-reposo').classList.add('hidden');
+            if(tempSelectForReposo) tempSelectForReposo.value = ""; 
+            cargarDatosUnidad();
+        }
+
+        async function guardarReposoRango(e) {
+            e.preventDefault();
+            const btn = document.getElementById('btn-save-reposo');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...'; btn.disabled = true;
+            
+            const payload = {
+                username: currentUser, p00: document.getElementById('rep_p00').value,
+                fecha_inicio: document.getElementById('rep_inicio').value, fecha_fin: document.getElementById('rep_fin').value,
+                estatus: "Reposo", motivo: document.getElementById('rep_motivo').value
+            };
+
+            try {
+                const res = await fetch(`${API_BASE}/api/guardar-rango`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+                if(!res.ok) { const err = await res.json(); alert(err.detail); }
+                document.getElementById('modal-reposo').classList.add('hidden');
+                cargarDatosUnidad(); 
+            } catch(err) { alert("Error de red."); }
+            btn.innerHTML = 'Guardar Rango'; btn.disabled = false;
         }
 
         async function enviarReporteRRHH() {
@@ -444,7 +493,7 @@
         }
 
         // ==========================================
-        // AGREGAR PERSONAL LOCAL
+        // AGREGAR PERSONAL LOCAL Y RRHH
         // ==========================================
         async function agregarEmpleadoManual(e) {
             e.preventDefault();
@@ -463,21 +512,16 @@
             const fileInput = document.getElementById('file-personal-unidad');
             if(!fileInput.files[0]) return alert("Seleccione el archivo Excel con el personal.");
             const btn = document.getElementById('btn-add-excel'); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; btn.disabled = true;
-            
-            const formData = new FormData(); 
-            formData.append("file", fileInput.files[0]); formData.append("username", currentUser);
+            const formData = new FormData(); formData.append("file", fileInput.files[0]); formData.append("username", currentUser);
             try {
                 const res = await fetch(`${API_BASE}/api/unidad/cargar-empleados-excel`, { method: 'POST', body: formData });
                 const data = await res.json();
                 if(res.ok) { alert(data.mensaje); fileInput.value = ""; cargarDatosUnidad(); }
                 else alert("Error: " + data.detail);
-            } catch(e) { alert("Error de red procesando archivo."); }
+            } catch(e) { alert("Error procesando archivo."); }
             btn.innerHTML = 'Procesar'; btn.disabled = false;
         }
 
-        // ==========================================
-        // LÓGICA DE RRHH Y SELECTS DINÁMICOS
-        // ==========================================
         async function importarEstructuraRRHH() {
             const fileInput = document.getElementById('file-estructura');
             if(!fileInput.files[0]) return alert("Seleccione el Excel de Estructura Organizativa.");
@@ -501,7 +545,7 @@
                     for(let ua in estructuraOrganizativa) { selectUA.innerHTML += `<option value="${ua}">${ua}</option>`; }
                     actualizarDropdownGerencias();
                 }
-            } catch(e) { console.log("Error cargando estructura", e); }
+            } catch(e) { console.log("Error cargando estructura"); }
         }
 
         function actualizarDropdownGerencias() {
