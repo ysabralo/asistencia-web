@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title="Asistencia Movilnet ERP v4.8")
+app = FastAPI(title="Asistencia Movilnet ERP v4.9")
 
 app.add_middleware(
     CORSMiddleware,
@@ -292,7 +292,7 @@ async def cargar_empleados_excel_unidad(username: str = Form(...), file: UploadF
         raise HTTPException(status_code=400, detail=str(e))
 
 # ==========================================
-# 4. CONTROL DE ASISTENCIA DIARIA
+# 4. CONTROL DE ASISTENCIA DIARIA 
 # ==========================================
 @app.get("/api/mi-asistencia/{username}")
 def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
@@ -380,7 +380,6 @@ def guardar_dia(req: AsistenciaDiaRequest, db = Depends(get_db)):
             raise HTTPException(status_code=403, detail="Error: No puede editar personal que no está en su plantilla local.")
 
     if req.estatus == "":
-        # SOLUCIÓN: Si eligen "Pendiente", eliminamos el registro para que cuente como falta de dato en la auditoría
         cursor.execute("DELETE FROM asistencia_diaria WHERE p00 = %s AND fecha = %s", (req.p00, req.fecha))
     else:
         cursor.execute("""
@@ -403,7 +402,7 @@ def guardar_rango(req: RangoAsistenciaRequest, db = Depends(get_db)):
     if usr and usr['rol'] in ['Reportador', 'Cierre de Unidad']:
         cursor.execute("SELECT 1 FROM plantilla_local WHERE username = %s AND p00 = %s", (req.username, req.p00))
         if not cursor.fetchone():
-            raise HTTPException(status_code=403, detail="Error: No puede editar personal que no está en su plantilla local.")
+            raise HTTPException(status_code=403, detail="Error de Permisos.")
 
     d_ini = pd.to_datetime(req.fecha_inicio)
     d_fin = pd.to_datetime(req.fecha_fin)
