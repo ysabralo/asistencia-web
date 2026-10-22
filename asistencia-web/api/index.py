@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title="Asistencia Movilnet ERP v4.6")
+app = FastAPI(title="Asistencia Movilnet ERP v4.7")
 
 app.add_middleware(
     CORSMiddleware,
@@ -36,7 +36,7 @@ def get_db():
         conn.close()
 
 ESTATUS_PERMITIDOS = [
-    "Asistencia Normal", "Teletrabajo", "Reposo", "Vacaciones", 
+    "", "Asistencia Normal", "Teletrabajo", "Reposo", "Vacaciones", 
     "Permiso otorgado", "Falta Injustificada", 
     "Dia Descanso Legal", "Dia Libre Compensatorio"
 ]
@@ -58,6 +58,14 @@ class AsistenciaDiaRequest(BaseModel):
     fecha: str
     estatus: str
     motivo: Optional[str] = ""
+
+class RangoAsistenciaRequest(BaseModel):
+    username: str
+    p00: str
+    fecha_inicio: str
+    fecha_fin: str
+    estatus: str
+    motivo: str
 
 class EnvioRRHHRequest(BaseModel):
     unidad_nombre: str
@@ -327,7 +335,8 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
     registros = cursor.fetchall()
     
     cursor.execute("SELECT p00, tipo_ausentismo, fecha_inicio, fecha_fin FROM ausentismos_rrhh WHERE fecha_inicio <= %s AND fecha_fin >= %s", (semana_fin, semana_ini))
-    ausentismos_fijos = [{"p00": a['p00'], "tipo_ausentismo": a['tipo_ausentismo'], "fecha_inicio": a['fecha_inicio'].strftime('%Y-%m-%d'), "fecha_fin": a['fecha_fin'].strftime('%Y-%m-%d')} for a in cursor.fetchall()]
+    ausentismos_raw = cursor.fetchall()
+    ausentismos_fijos = [{"p00": a['p00'], "tipo_ausentismo": a['tipo_ausentismo'], "fecha_inicio": a['fecha_inicio'].strftime('%Y-%m-%d'), "fecha_fin": a['fecha_fin'].strftime('%Y-%m-%d')} for a in ausentismos_raw]
     
     empleados_dict = {}
     for reg in registros:
@@ -355,7 +364,8 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
 @app.post("/api/guardar-dia")
 def guardar_dia(req: AsistenciaDiaRequest, db = Depends(get_db)):
     if req.estatus not in ESTATUS_PERMITIDOS: raise HTTPException(status_code=400, detail="Estatus inválido.")
-    if req.estatus == "Falta Injustificada" and not req.motivo.strip(): raise HTTPException(status_code=400, detail="Debe indicar motivo.")
+    if req.estatus in ["Falta Injustificada", "Permiso otorgado"] and not req.motivo.strip(): 
+        raise HTTPException(status_code=400, detail="Debe indicar el motivo.")
 
     cursor = db.cursor()
     cursor.execute("SELECT estatus FROM configuracion_sistema WHERE id = 1")
@@ -373,6 +383,40 @@ def guardar_dia(req: AsistenciaDiaRequest, db = Depends(get_db)):
         INSERT INTO asistencia_diaria (p00, fecha, estatus, motivo) VALUES (%s, %s, %s, %s)
         ON CONFLICT (p00, fecha) DO UPDATE SET estatus = EXCLUDED.estatus, motivo = EXCLUDED.motivo
     """, (req.p00, req.fecha, req.estatus, req.motivo))
+    db.commit()
+    return {"success": True}
+
+@app.post("/api/guardar-rango")
+def guardar_rango(req: RangoAsistenciaRequest, db = Depends(get_db)):
+    cursor = db.cursor()
+    cursor.execute("SELECT estatus, semana_inicio, semana_fin FROM configuracion_sistema WHERE id = 1")
+    config = cursor.fetchone()
+    if config and config['estatus'] == 'Cerrada': raise HTTPException(status_code=403, detail="Semana cerrada.")
+
+    cursor.execute("SELECT rol FROM usuarios WHERE username = %s", (req.username,))
+    usr = cursor.fetchone()
+    if usr and usr['rol'] in ['Reportador', 'Cierre de Unidad']:
+        cursor.execute("SELECT 1 FROM plantilla_local WHERE username = %s AND p00 = %s", (req.username, req.p00))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=403, detail="Error: No puede editar personal que no está en su plantilla local.")
+
+    d_ini = pd.to_datetime(req.fecha_inicio)
+    d_fin = pd.to_datetime(req.fecha_fin)
+    sem_ini = pd.to_datetime(config['semana_inicio'])
+    sem_fin = pd.to_datetime(config['semana_fin'])
+    
+    start_date = max(d_ini, sem_ini)
+    end_date = min(d_fin, sem_fin)
+    
+    if start_date <= end_date:
+        curr_date = start_date
+        while curr_date <= end_date:
+            cursor.execute("""
+                INSERT INTO asistencia_diaria (p00, fecha, estatus, motivo) VALUES (%s, %s, %s, %s)
+                ON CONFLICT (p00, fecha) DO UPDATE SET estatus = EXCLUDED.estatus, motivo = EXCLUDED.motivo
+            """, (req.p00, curr_date.strftime('%Y-%m-%d'), req.estatus, req.motivo))
+            curr_date += timedelta(days=1)
+            
     db.commit()
     return {"success": True}
 
