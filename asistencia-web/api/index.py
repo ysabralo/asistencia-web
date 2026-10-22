@@ -35,7 +35,6 @@ def get_db():
     finally:
         conn.close()
 
-# TELETRABAJO INCLUIDO EN LAS REGLAS DE NEGOCIO
 ESTATUS_PERMITIDOS = [
     "Asistencia Normal", "Teletrabajo", "Reposo", "Vacaciones", 
     "Permiso otorgado", "Falta Injustificada", 
@@ -54,6 +53,7 @@ class UsuarioRequest(BaseModel):
     gerencia_general: Optional[str] = ""
 
 class AsistenciaDiaRequest(BaseModel):
+    username: str
     p00: str
     fecha: str
     estatus: str
@@ -101,7 +101,7 @@ def crear_usuario(req: UsuarioRequest, db = Depends(get_db)):
             VALUES (%s, %s, %s, %s, %s)
         """, (req.username, pwd_hash, req.rol, req.unidad_administrativa, req.gerencia_general))
         db.commit()
-        return {"success": True, "mensaje": "Usuario creado exitosamente."}
+        return {"success": True, "mensaje": "Usuario creado exitosamente con su jurisdicción."}
     except psycopg.errors.UniqueViolation:
         db.rollback()
         raise HTTPException(status_code=400, detail="El usuario ya existe")
@@ -224,30 +224,25 @@ async def cargar_maestro(file: UploadFile = File(...), db = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 # ==========================================
-# 3. GESTIÓN AUTÓNOMA Y VALIDACIÓN CRUZADA
+# 3. GESTIÓN AUTÓNOMA DE PERSONAL (UNIDADES)
 # ==========================================
 @app.post("/api/unidad/agregar-empleado")
 def agregar_empleado_unidad(req: EmpleadoUnidadRequest, db = Depends(get_db)):
-    """ Incorporación manual validando solo el P00 contra RRHH y Jurisdicción """
     cursor = db.cursor()
     cursor.execute("SELECT unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (req.username,))
     usr = cursor.fetchone()
     if not usr: raise HTTPException(status_code=404, detail="Usuario no encontrado")
     
-    # Validar existencia en RRHH
     cursor.execute("SELECT unidad_administrativa, gerencia_general, nombres_apellidos FROM empleados_maestro WHERE p00 = %s AND estatus = 'Activo'", (req.p00,))
     emp = cursor.fetchone()
-    
     if not emp: 
-        raise HTTPException(status_code=400, detail=f"El P00 {req.p00} no existe en la base de datos de RRHH o no está Activo.")
+        raise HTTPException(status_code=400, detail=f"El P00 {req.p00} no existe en RRHH o está Inactivo.")
         
-    # Validación Cruzada Jurisdiccional
     if usr['unidad_administrativa'] and emp['unidad_administrativa'] != usr['unidad_administrativa']:
-        raise HTTPException(status_code=400, detail=f"Bloqueado: El empleado pertenece a la Unidad '{emp['unidad_administrativa']}'.")
+        raise HTTPException(status_code=400, detail=f"Bloqueado: Pertenece a la Unidad '{emp['unidad_administrativa']}'.")
     if usr['gerencia_general'] and emp['gerencia_general'] != usr['gerencia_general']:
-        raise HTTPException(status_code=400, detail=f"Bloqueado: El empleado pertenece a la Gerencia '{emp['gerencia_general']}'.")
+        raise HTTPException(status_code=400, detail=f"Bloqueado: Pertenece a la Gerencia '{emp['gerencia_general']}'.")
 
-    # Guardar en la plantilla local de este usuario
     try:
         cursor.execute("INSERT INTO plantilla_local (username, p00) VALUES (%s, %s) ON CONFLICT DO NOTHING", (req.username, req.p00))
         db.commit()
@@ -258,7 +253,6 @@ def agregar_empleado_unidad(req: EmpleadoUnidadRequest, db = Depends(get_db)):
 
 @app.post("/api/unidad/cargar-empleados-excel")
 async def cargar_empleados_excel_unidad(username: str = Form(...), file: UploadFile = File(...), db = Depends(get_db)):
-    """ Carga masiva descentralizada de P00s """
     cursor = db.cursor()
     cursor.execute("SELECT unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (username,))
     usr = cursor.fetchone()
@@ -266,45 +260,32 @@ async def cargar_empleados_excel_unidad(username: str = Form(...), file: UploadF
     try:
         contents = await file.read()
         df = pd.read_excel(io.BytesIO(contents))
-        
-        if 'P00' not in df.columns:
-            raise HTTPException(status_code=400, detail="El archivo Excel debe tener una única columna llamada 'P00'.")
+        if 'P00' not in df.columns: raise HTTPException(status_code=400, detail="Falta columna 'P00'.")
 
-        cargas = 0
-        errores = []
-
+        cargas = 0; errores = []
         for _, fila in df.iterrows():
             p00 = str(fila['P00']).strip()
             if p00 and p00 != 'nan':
                 cursor.execute("SELECT unidad_administrativa, gerencia_general FROM empleados_maestro WHERE p00 = %s AND estatus = 'Activo'", (p00,))
                 emp = cursor.fetchone()
                 
-                if not emp:
-                    errores.append(f"{p00} (No existe/Inactivo)")
-                    continue
-                
-                # Validación Cruzada
-                if usr['unidad_administrativa'] and emp['unidad_administrativa'] != usr['unidad_administrativa']:
-                    errores.append(f"{p00} (Pertenece a otra VP)")
-                    continue
-                if usr['gerencia_general'] and emp['gerencia_general'] != usr['gerencia_general']:
-                    errores.append(f"{p00} (Pertenece a otra GG)")
-                    continue
+                if not emp: errores.append(f"{p00} (Inactivo/No Existe)"); continue
+                if usr['unidad_administrativa'] and emp['unidad_administrativa'] != usr['unidad_administrativa']: errores.append(f"{p00} (Otra VP)"); continue
+                if usr['gerencia_general'] and emp['gerencia_general'] != usr['gerencia_general']: errores.append(f"{p00} (Otra GG)"); continue
                     
                 cursor.execute("INSERT INTO plantilla_local (username, p00) VALUES (%s, %s) ON CONFLICT DO NOTHING", (username, p00))
                 cargas += 1
                 
         db.commit()
-        msg = f"Se integraron {cargas} empleados a su plantilla local."
-        if errores:
-            msg += f"\nRechazados por jurisdicción o inexistentes: {len(errores)}"
+        msg = f"Se integraron {cargas} empleados."
+        if errores: msg += f"\nRechazados por jurisdicción: {len(errores)}"
         return {"success": True, "mensaje": msg}
     except Exception as e:
         db.rollback()
-        raise HTTPException(status_code=400, detail=f"Error validando archivo local: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 # ==========================================
-# 4. CONTROL DE ASISTENCIA DIARIA
+# 4. CONTROL DE ASISTENCIA DIARIA (LECTURA/ESCRITURA DUAL)
 # ==========================================
 @app.get("/api/mi-asistencia/{username}")
 def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
@@ -318,6 +299,10 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
     cursor.execute("SELECT rol, unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (username,))
     usr = cursor.fetchone()
     if not usr: raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    # Obtener el personal explícitamente reclamado por este usuario (Para habilitar edición)
+    cursor.execute("SELECT p00 FROM plantilla_local WHERE username = %s", (username,))
+    mis_p00s = {row['p00'] for row in cursor.fetchall()}
 
     query_emp = """
         SELECT e.p00, e.nombres_apellidos, e.cedula, e.unidad_administrativa, e.gerencia_general, a.fecha, a.estatus, a.motivo
@@ -327,13 +312,12 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
     """
     params = [semana_ini, semana_fin]
     
-    # LÓGICA DE VISIBILIDAD DE ROLES
     if usr['rol'] == 'Reportador':
-        # El Reportador solo ve su sub-lista específica local
+        # Reportador SOLO ve a su gente reclamada
         query_emp += " AND e.p00 IN (SELECT p00 FROM plantilla_local WHERE username = %s)"
         params.append(username)
     else:
-        # El Cierre de Unidad ve a TODOS los que pertenezcan a su jurisdicción automáticamente
+        # Cierre de Unidad ve a TODOS en su jurisdicción para auditar, sean suyos o no
         if usr['unidad_administrativa']:
             query_emp += " AND e.unidad_administrativa = %s"
             params.append(usr['unidad_administrativa'])
@@ -356,7 +340,9 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
         if p00 not in empleados_dict:
             empleados_dict[p00] = {
                 "p00": p00, "nombres_apellidos": reg['nombres_apellidos'], 
-                "unidad": reg['unidad_administrativa'], "gerencia": reg['gerencia_general'], "asistencia": {}
+                "unidad": reg['unidad_administrativa'], "gerencia": reg['gerencia_general'], 
+                "editable": True if usr['rol'] == 'Reportador' else (p00 in mis_p00s),
+                "asistencia": {}
             }
         if reg['fecha']: 
             fecha_str = reg['fecha'].strftime('%Y-%m-%d')
@@ -380,6 +366,14 @@ def guardar_dia(req: AsistenciaDiaRequest, db = Depends(get_db)):
     cursor.execute("SELECT estatus FROM configuracion_sistema WHERE id = 1")
     config = cursor.fetchone()
     if config and config['estatus'] == 'Cerrada': raise HTTPException(status_code=403, detail="Semana cerrada.")
+
+    # VALIDACIÓN DE SEGURIDAD: Solo puede editar si está en su plantilla local
+    cursor.execute("SELECT rol FROM usuarios WHERE username = %s", (req.username,))
+    usr = cursor.fetchone()
+    if usr and usr['rol'] in ['Reportador', 'Cierre de Unidad']:
+        cursor.execute("SELECT 1 FROM plantilla_local WHERE username = %s AND p00 = %s", (req.username, req.p00))
+        if not cursor.fetchone():
+            raise HTTPException(status_code=403, detail="Error de Permisos: No puede editar personal que no ha sido agregado a su plantilla a cargo.")
 
     cursor.execute("""
         INSERT INTO asistencia_diaria (p00, fecha, estatus, motivo) VALUES (%s, %s, %s, %s)
