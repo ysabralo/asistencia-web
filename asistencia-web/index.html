@@ -103,7 +103,6 @@
                         <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-sitemap text-blue-600 mr-2"></i>1. Estructura Organizativa</h2>
                         <input type="file" id="file-estructura" accept=".xlsx" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 mb-2 border border-gray-300"/>
                         
-                        <!-- Panel de Ayuda (Amarillo) -->
                         <div class="bg-yellow-50 text-yellow-800 text-xs p-3 rounded border border-yellow-200 mb-4">
                             <p class="font-bold mb-1"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Formato Requerido (Hoja Única)</p>
                             <ul class="list-disc pl-4 space-y-1 text-[11px]">
@@ -120,7 +119,6 @@
                         <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-upload text-blue-600 mr-2"></i>2. Aperturar Semana</h2>
                         <input type="file" id="file-master" accept=".xlsx" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 mb-2 border border-gray-300"/>
                         
-                        <!-- Panel de Ayuda (Amarillo) -->
                         <div class="bg-yellow-50 text-yellow-800 text-xs p-3 rounded border border-yellow-200 mb-4">
                             <p class="font-bold mb-1"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Formato Requerido (3 Hojas Exactas)</p>
                             <ul class="list-disc pl-4 space-y-1 text-[11px]">
@@ -148,7 +146,6 @@
                             
                             <div class="border-t pt-2 mt-2">
                                 <p class="text-[10px] text-gray-500 mb-1 uppercase font-bold">Asignación de Jurisdicción (Cascada)</p>
-                                <!-- SELECTS DINÁMICOS BASADOS EN LA BD -->
                                 <select id="usr_unidad" class="w-full p-2 text-sm bg-blue-50 border border-blue-100 rounded outline-none mb-2" onchange="actualizarDropdownGerencias()">
                                     <option value="">Nivel 1: Unidad Administrativa / VP (Todas)</option>
                                 </select>
@@ -282,20 +279,24 @@
                         
                         const bloqAus = semanaData.ausentismos.some(a => a.p00 === emp.p00 && f >= a.fecha_inicio && f <= a.fecha_fin);
                         const select = document.createElement('select');
-                        select.className = "block w-full text-[11px] border border-gray-300 rounded p-1 bg-gray-50 outline-none";
+                        select.className = "block w-full text-[11px] border border-gray-300 rounded p-1 bg-gray-50 outline-none transition";
                         
-                        if(semanaData.locked || bloqAus) { select.disabled = true; select.classList.add("cursor-not-allowed", "opacity-75"); }
+                        if(semanaData.locked || bloqAus) { 
+                            select.disabled = true; 
+                            select.classList.add("cursor-not-allowed", "opacity-80"); 
+                            if(bloqAus) select.title = "Bloqueado por RRHH";
+                        }
                         
                         ESTATUS_PERMITIDOS.forEach(est => {
                             const opt = document.createElement('option'); opt.value = est; opt.innerText = est === "" ? "Pendiente" : est;
-                            if(bloqAus && estActual === "" && ["Vacaciones", "Reposo"].includes(est)) opt.selected = true; 
-                            else if(est === estActual) opt.selected = true;
+                            if(est === estActual) opt.selected = true;
                             select.appendChild(opt);
                         });
                         
-                        if(select.value === "Falta Injustificada") select.classList.add("bg-red-50", "text-red-700", "font-bold");
-                        if(select.value === "Asistencia Normal") select.classList.add("bg-green-50", "text-green-700");
-                        if(["Reposo", "Vacaciones", "Permiso otorgado"].includes(select.value)) select.classList.add("bg-purple-50", "text-purple-700", "font-bold");
+                        // LÓGICA DE COLOR (Incluso bloqueados)
+                        if(estActual === "Falta Injustificada") select.classList.add("bg-red-50", "text-red-700", "font-bold", "border-red-300");
+                        else if(estActual === "Asistencia Normal") select.classList.add("bg-green-50", "text-green-700", "border-green-300");
+                        else if(["Reposo", "Vacaciones", "Permiso otorgado"].includes(estActual)) select.classList.add("bg-purple-50", "text-purple-700", "font-bold", "border-purple-300");
 
                         select.onchange = (e) => registrarDiaVuelo(emp.p00, f, e.target.value, select);
                         td.appendChild(select); tr.appendChild(td);
