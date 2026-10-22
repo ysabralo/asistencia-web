@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title="Asistencia Movilnet ERP v4.5")
+app = FastAPI(title="Asistencia Movilnet ERP v4.6")
 
 app.add_middleware(
     CORSMiddleware,
@@ -235,8 +235,7 @@ def agregar_empleado_unidad(req: EmpleadoUnidadRequest, db = Depends(get_db)):
     
     cursor.execute("SELECT unidad_administrativa, gerencia_general, nombres_apellidos FROM empleados_maestro WHERE p00 = %s AND estatus = 'Activo'", (req.p00,))
     emp = cursor.fetchone()
-    if not emp: 
-        raise HTTPException(status_code=400, detail=f"El P00 {req.p00} no existe en RRHH o está Inactivo.")
+    if not emp: raise HTTPException(status_code=400, detail=f"El P00 {req.p00} no existe en RRHH o está Inactivo.")
         
     if usr['unidad_administrativa'] and emp['unidad_administrativa'] != usr['unidad_administrativa']:
         raise HTTPException(status_code=400, detail=f"Bloqueado: Pertenece a la Unidad '{emp['unidad_administrativa']}'.")
@@ -285,7 +284,7 @@ async def cargar_empleados_excel_unidad(username: str = Form(...), file: UploadF
         raise HTTPException(status_code=400, detail=str(e))
 
 # ==========================================
-# 4. CONTROL DE ASISTENCIA DIARIA (LECTURA/ESCRITURA DUAL)
+# 4. CONTROL DE ASISTENCIA DIARIA (AUDITORÍA DUAL)
 # ==========================================
 @app.get("/api/mi-asistencia/{username}")
 def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
@@ -300,7 +299,6 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
     usr = cursor.fetchone()
     if not usr: raise HTTPException(status_code=404, detail="Usuario no encontrado")
     
-    # Obtener el personal explícitamente reclamado por este usuario (Para habilitar edición)
     cursor.execute("SELECT p00 FROM plantilla_local WHERE username = %s", (username,))
     mis_p00s = {row['p00'] for row in cursor.fetchall()}
 
@@ -313,11 +311,9 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
     params = [semana_ini, semana_fin]
     
     if usr['rol'] == 'Reportador':
-        # Reportador SOLO ve a su gente reclamada
         query_emp += " AND e.p00 IN (SELECT p00 FROM plantilla_local WHERE username = %s)"
         params.append(username)
     else:
-        # Cierre de Unidad ve a TODOS en su jurisdicción para auditar, sean suyos o no
         if usr['unidad_administrativa']:
             query_emp += " AND e.unidad_administrativa = %s"
             params.append(usr['unidad_administrativa'])
@@ -325,14 +321,13 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
             query_emp += " AND e.gerencia_general = %s"
             params.append(usr['gerencia_general'])
         
-    query_emp += " ORDER BY e.unidad_administrativa ASC, e.gerencia_general ASC, e.nombres_apellidos ASC, a.fecha ASC"
+    query_emp += " ORDER BY e.gerencia_general ASC, e.nombres_apellidos ASC, a.fecha ASC"
     
     cursor.execute(query_emp, params)
     registros = cursor.fetchall()
     
     cursor.execute("SELECT p00, tipo_ausentismo, fecha_inicio, fecha_fin FROM ausentismos_rrhh WHERE fecha_inicio <= %s AND fecha_fin >= %s", (semana_fin, semana_ini))
-    ausentismos_raw = cursor.fetchall()
-    ausentismos_fijos = [{"p00": a['p00'], "tipo_ausentismo": a['tipo_ausentismo'], "fecha_inicio": a['fecha_inicio'].strftime('%Y-%m-%d'), "fecha_fin": a['fecha_fin'].strftime('%Y-%m-%d')} for a in ausentismos_raw]
+    ausentismos_fijos = [{"p00": a['p00'], "tipo_ausentismo": a['tipo_ausentismo'], "fecha_inicio": a['fecha_inicio'].strftime('%Y-%m-%d'), "fecha_fin": a['fecha_fin'].strftime('%Y-%m-%d')} for a in cursor.fetchall()]
     
     empleados_dict = {}
     for reg in registros:
@@ -367,13 +362,12 @@ def guardar_dia(req: AsistenciaDiaRequest, db = Depends(get_db)):
     config = cursor.fetchone()
     if config and config['estatus'] == 'Cerrada': raise HTTPException(status_code=403, detail="Semana cerrada.")
 
-    # VALIDACIÓN DE SEGURIDAD: Solo puede editar si está en su plantilla local
     cursor.execute("SELECT rol FROM usuarios WHERE username = %s", (req.username,))
     usr = cursor.fetchone()
     if usr and usr['rol'] in ['Reportador', 'Cierre de Unidad']:
         cursor.execute("SELECT 1 FROM plantilla_local WHERE username = %s AND p00 = %s", (req.username, req.p00))
         if not cursor.fetchone():
-            raise HTTPException(status_code=403, detail="Error de Permisos: No puede editar personal que no ha sido agregado a su plantilla a cargo.")
+            raise HTTPException(status_code=403, detail="Error: No puede editar personal que no está en su plantilla local.")
 
     cursor.execute("""
         INSERT INTO asistencia_diaria (p00, fecha, estatus, motivo) VALUES (%s, %s, %s, %s)
@@ -416,7 +410,7 @@ def enviar_a_rrhh(req: EnvioRRHHRequest, db = Depends(get_db)):
     dias_registrados = cursor.fetchone()['total_registros']
 
     if dias_registrados < dias_esperados:
-        raise HTTPException(status_code=403, detail=f"Reporte al {(dias_registrados/dias_esperados)*100:.1f}%. Faltan días por justificar.")
+        raise HTTPException(status_code=403, detail=f"Auditoría Fallida: Reporte de Jurisdicción al {(dias_registrados/dias_esperados)*100:.1f}%.")
 
     cursor.execute("""
         INSERT INTO estado_entregas (unidad_nombre, semana_inicio, semana_fin, estatus_entrega, fecha_envio)
