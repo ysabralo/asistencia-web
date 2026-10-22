@@ -275,30 +275,46 @@
                     fechas7.forEach(f => {
                         const td = document.createElement('td'); td.className = "px-2 py-3 border-r";
                         const estActual = (emp.asistencia[f]) ? emp.asistencia[f].estatus : "";
-                        if(estActual !== "") diasLlenos++;
                         
-                        const bloqAus = semanaData.ausentismos.some(a => a.p00 === emp.p00 && f >= a.fecha_inicio && f <= a.fecha_fin);
+                        // LÓGICA REVISADA: Detección estricta de absentismos oficiales de RRHH para ese día específico
+                        const ausentismoActivo = semanaData.ausentismos.find(a => a.p00 === emp.p00 && f >= a.fecha_inicio && f <= a.fecha_fin);
+                        
                         const select = document.createElement('select');
                         select.className = "block w-full text-[11px] border border-gray-300 rounded p-1 bg-gray-50 outline-none transition";
                         
-                        if(semanaData.locked || bloqAus) { 
-                            select.disabled = true; 
-                            select.classList.add("cursor-not-allowed", "opacity-80"); 
-                            if(bloqAus) select.title = "Bloqueado por RRHH";
+                        if (ausentismoActivo) {
+                            // SI HAY UN ABSENTISMO OFICIAL: Bloqueamos y mostramos SOLO la causa
+                            select.disabled = true;
+                            select.title = "Ausentismo RRHH: " + ausentismoActivo.tipo_ausentismo;
+                            select.classList.add("cursor-not-allowed", "opacity-100", "bg-purple-100", "text-purple-800", "font-bold", "border-purple-300", "uppercase");
+                            
+                            const opt = document.createElement('option');
+                            opt.value = ausentismoActivo.tipo_ausentismo;
+                            opt.innerText = ausentismoActivo.tipo_ausentismo.toUpperCase();
+                            opt.selected = true;
+                            select.appendChild(opt);
+                            
+                            // Aseguramos que la barra de progreso cuente este día (ya justificado por RRHH)
+                            diasLlenos++;
+                            
+                        } else {
+                            // SI NO HAY ABSENTISMO: Mostramos opciones normales
+                            if(estActual !== "") diasLlenos++;
+                            if(semanaData.locked) { select.disabled = true; select.classList.add("cursor-not-allowed", "opacity-80"); }
+                            
+                            ESTATUS_PERMITIDOS.forEach(est => {
+                                const opt = document.createElement('option'); opt.value = est; opt.innerText = est === "" ? "Pendiente" : est;
+                                if(est === estActual) opt.selected = true;
+                                select.appendChild(opt);
+                            });
+                            
+                            if(select.value === "Falta Injustificada") select.classList.add("bg-red-50", "text-red-700", "font-bold", "border-red-300");
+                            else if(select.value === "Asistencia Normal") select.classList.add("bg-green-50", "text-green-700", "border-green-300");
+                            else if(["Reposo", "Vacaciones", "Permiso otorgado"].includes(select.value)) select.classList.add("bg-purple-50", "text-purple-700", "font-bold", "border-purple-300");
+
+                            select.onchange = (e) => registrarDiaVuelo(emp.p00, f, e.target.value, select);
                         }
                         
-                        ESTATUS_PERMITIDOS.forEach(est => {
-                            const opt = document.createElement('option'); opt.value = est; opt.innerText = est === "" ? "Pendiente" : est;
-                            if(est === estActual) opt.selected = true;
-                            select.appendChild(opt);
-                        });
-                        
-                        // LÓGICA DE COLOR (Incluso bloqueados)
-                        if(estActual === "Falta Injustificada") select.classList.add("bg-red-50", "text-red-700", "font-bold", "border-red-300");
-                        else if(estActual === "Asistencia Normal") select.classList.add("bg-green-50", "text-green-700", "border-green-300");
-                        else if(["Reposo", "Vacaciones", "Permiso otorgado"].includes(estActual)) select.classList.add("bg-purple-50", "text-purple-700", "font-bold", "border-purple-300");
-
-                        select.onchange = (e) => registrarDiaVuelo(emp.p00, f, e.target.value, select);
                         td.appendChild(select); tr.appendChild(td);
                     });
                     tbody.appendChild(tr);
