@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title="Asistencia Movilnet ERP v4.2")
+app = FastAPI(title="Asistencia Movilnet ERP v4.3")
 
 app.add_middleware(
     CORSMiddleware,
@@ -172,9 +172,11 @@ async def cargar_maestro(file: UploadFile = File(...), db = Depends(get_db)):
         f_ini = pd.to_datetime(df_config['Fecha_Inicio'].iloc[0]).strftime('%Y-%m-%d')
         f_fin = pd.to_datetime(df_config['Fecha_Fin'].iloc[0]).strftime('%Y-%m-%d')
         
+        # 1. Aperturar Semana
         cursor.execute("DELETE FROM configuracion_sistema")
         cursor.execute("INSERT INTO configuracion_sistema (id, semana_inicio, semana_fin, estatus) VALUES (1, %s, %s, 'Abierta')", (f_ini, f_fin))
         
+        # 2. Cargar Personal
         nuevos_emp = 0
         for _, fila in df_personal.iterrows():
             p00 = str(fila['P00']).strip()
@@ -193,6 +195,7 @@ async def cargar_maestro(file: UploadFile = File(...), db = Depends(get_db)):
                 """, (p00, cedula, nombres, f_ingreso, unidad, gerencia))
                 nuevos_emp += 1
 
+        # 3. Procesar Absentismos y AUTO-LLENAR Asistencia
         cursor.execute("DELETE FROM ausentismos_rrhh")
         cargas_aus = 0
         
@@ -209,6 +212,7 @@ async def cargar_maestro(file: UploadFile = File(...), db = Depends(get_db)):
             p00 = str(fila['P00']).strip()
             if p00 and p00 != 'nan':
                 tipo_raw = str(fila['Tipo_Ausentismo']).strip()
+                # Limpiar y emparejar con el estatus exacto
                 tipo = estatus_map.get(tipo_raw.lower(), tipo_raw.capitalize())
                 
                 f_ini_aus_dt = pd.to_datetime(fila['Fecha_Inicio'])
@@ -218,7 +222,7 @@ async def cargar_maestro(file: UploadFile = File(...), db = Depends(get_db)):
                                (p00, tipo, f_ini_aus_dt.strftime('%Y-%m-%d'), f_fin_aus_dt.strftime('%Y-%m-%d')))
                 cargas_aus += 1
                 
-                # Inyección automática de asistencia para RRHH
+                # Inyección automática de asistencia para RRHH (SOLO PARA LA SEMANA ACTIVA)
                 d_ini_sem = pd.to_datetime(f_ini)
                 d_fin_sem = pd.to_datetime(f_fin)
                 
@@ -229,16 +233,17 @@ async def cargar_maestro(file: UploadFile = File(...), db = Depends(get_db)):
                     curr_date = start_date
                     while curr_date <= end_date:
                         fecha_str = curr_date.strftime('%Y-%m-%d')
+                        # AQUÍ ESTABA EL ERROR: El orden correcto es (p00, fecha, estatus)
                         cursor.execute("""
                             INSERT INTO asistencia_diaria (p00, fecha, estatus, motivo) 
                             VALUES (%s, %s, %s, 'Cargado automáticamente por RRHH')
                             ON CONFLICT (p00, fecha) DO UPDATE 
                             SET estatus = EXCLUDED.estatus, motivo = EXCLUDED.motivo
-                        """, (p00, tipo, fecha_str))
+                        """, (p00, fecha_str, tipo))
                         curr_date += timedelta(days=1)
                 
         db.commit()
-        return {"success": True, "mensaje": f"Semana habilitada.\nPersonal: {nuevos_emp} | Absentismos: {cargas_aus}"}
+        return {"success": True, "mensaje": f"Semana habilitada exitosamente.\nPersonal Procesado: {nuevos_emp} | Absentismos Inyectados: {cargas_aus}"}
         
     except KeyError as e:
         db.rollback()
