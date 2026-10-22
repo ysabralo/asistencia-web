@@ -47,7 +47,7 @@
                     <p id="unidad-rango-fechas" class="text-gray-600 mt-1 font-medium"><i class="fa-regular fa-calendar text-blue-600 mr-2"></i>Cargando...</p>
                 </div>
                 <div class="mt-4 md:mt-0 text-center md:text-right bg-gray-50 p-3 rounded-lg border border-gray-200 min-w-[250px]">
-                    <div class="text-xs text-gray-500 mb-1 font-bold uppercase tracking-wider">Cumplimiento de Jurisdicción</div>
+                    <div class="text-xs text-gray-500 mb-1 font-bold uppercase tracking-wider">Avance Global de Jurisdicción</div>
                     <div class="flex items-center space-x-3">
                         <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden shadow-inner"><div id="progress-bar" class="bg-green-500 h-3 transition-all duration-500" style="width: 0%"></div></div>
                         <span id="progress-text" class="font-bold text-gray-800 text-sm">0%</span>
@@ -55,51 +55,67 @@
                 </div>
             </div>
 
+            <!-- GESTIÓN DE PERSONAL LOCAL -->
             <div class="bg-white rounded-xl shadow-md p-6 border border-gray-200" id="panel-gestion-personal">
                 <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-user-check text-blue-600 mr-2"></i>Reclamar Personal a Cargo</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div class="bg-gray-50 p-4 rounded border border-gray-200 shadow-sm">
                         <h3 class="font-bold text-sm text-gray-700 mb-3"><i class="fa-solid fa-keyboard text-gray-400 mr-1"></i> Incorporación Manual</h3>
-                        <form id="form-add-empleado" onsubmit="agregarEmpleadoManual(event)" class="space-y-3">
-                            <input type="text" id="add_p00" placeholder="Ingrese el P00 (Ej: 212345)" class="w-full p-2.5 text-sm border rounded outline-none font-mono" required>
-                            <button type="submit" id="btn-add-manual" class="w-full bg-blue-600 text-white py-2.5 rounded text-sm font-bold hover:bg-blue-700 transition shadow">Vincular P00 a mi Plantilla</button>
+                        <form id="form-add-empleado" onsubmit="agregarEmpleadoManual(event)" class="flex space-x-2">
+                            <input type="text" id="add_p00" placeholder="P00 (Ej: 212345)" class="w-full p-2 text-sm border rounded outline-none font-mono" required>
+                            <button type="submit" id="btn-add-manual" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700 transition shadow whitespace-nowrap">Vincular</button>
                         </form>
                     </div>
                     <div class="bg-gray-50 p-4 rounded border border-gray-200 shadow-sm">
                         <h3 class="font-bold text-sm text-gray-700 mb-3"><i class="fa-solid fa-file-excel text-green-600 mr-1"></i> Carga Masiva (Excel)</h3>
-                        <input type="file" id="file-personal-unidad" accept=".xlsx" class="block w-full text-xs text-gray-500 file:mr-4 file:py-2 file:px-3 file:rounded file:border-0 file:font-bold file:bg-blue-100 file:text-blue-700 mb-3 border bg-white cursor-pointer">
-                        <div class="bg-blue-50 text-blue-800 text-[10px] p-2 rounded border border-blue-200 mb-3 font-medium">Obligatorio: El Excel debe tener 1 sola columna llamada <b>P00</b>.</div>
-                        <button onclick="cargarPersonalExcel()" id="btn-add-excel" class="w-full bg-green-600 text-white py-2.5 rounded text-sm font-bold hover:bg-green-700 transition shadow">Procesar Archivo Local</button>
+                        <div class="flex space-x-2 items-center">
+                            <input type="file" id="file-personal-unidad" accept=".xlsx" class="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:font-bold file:bg-blue-100 file:text-blue-700 border bg-white cursor-pointer">
+                            <button onclick="cargarPersonalExcel()" id="btn-add-excel" class="bg-green-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-green-700 transition shadow whitespace-nowrap">Procesar</button>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- TABLA DE ASISTENCIA -->
+            <!-- PANEL DE AUDITORÍA (NUEVO) -->
+            <div id="panel-auditoria" class="bg-white rounded-xl shadow-md p-6 border border-gray-200 hidden">
+                <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-clipboard-check text-blue-600 mr-2"></i>Auditoría de Cierre de Semana</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div id="audit-mios" class="bg-gray-50 rounded-lg p-4 border border-gray-200 shadow-inner"></div>
+                    <div id="audit-otros" class="bg-gray-50 rounded-lg p-4 border border-gray-200 shadow-inner hidden"></div>
+                </div>
+            </div>
+
+            <!-- TABLA 1: PERSONAL A CARGO (EDITABLE) -->
             <div class="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
+                <div class="bg-blue-50 px-4 py-3 border-b border-blue-100"><h3 class="font-bold text-blue-800 text-sm"><i class="fa-solid fa-pen-to-square mr-2"></i>Mi Personal a Cargo (Editable)</h3></div>
                 <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200" id="tabla-asistencia">
-                        <thead class="bg-gray-100">
-                            <tr>
-                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase sticky left-0 bg-gray-100 z-10 border-r border-gray-200 shadow-sm">Personal Activo</th>
-                                <th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase">Día 1</th><th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase">Día 2</th><th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase">Día 3</th><th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase">Día 4</th><th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase">Día 5</th><th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase">Día 6</th><th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase">Día 7</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tabla-body" class="bg-white divide-y divide-gray-100">
-                            <tr><td colspan="8" class="px-6 py-10 text-center text-gray-500"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Cargando Plantilla...</td></tr>
-                        </tbody>
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-100" id="thead-mios"></thead>
+                        <tbody id="tabla-body-mios" class="bg-white divide-y divide-gray-100"></tbody>
                     </table>
                 </div>
             </div>
 
-            <!-- PANELES DE CIERRE -->
+            <!-- TABLA 2: PERSONAL EXTERNO (SOLO LECTURA PARA AUDITORÍA) -->
+            <div id="contenedor-tabla-otros" class="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200 hidden">
+                <div class="bg-gray-100 px-4 py-3 border-b border-gray-200"><h3 class="font-bold text-gray-700 text-sm"><i class="fa-solid fa-eye mr-2"></i>Personal de otras Coordinaciones (Solo Lectura)</h3></div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-100" id="thead-otros"></thead>
+                        <tbody id="tabla-body-otros" class="bg-white divide-y divide-gray-100"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- PANEL DE CIERRE -->
             <div id="panel-cierre-unidad" class="flex flex-col md:flex-row justify-between items-center p-5 bg-gray-50 rounded-xl shadow-inner border border-gray-200 gap-4 hidden">
-                <div class="text-sm font-medium text-gray-600"><i class="fa-solid fa-circle-info text-blue-600 mr-2"></i> Perfil autorizado para Certificar esta Jurisdicción.</div>
+                <div class="text-sm font-medium text-gray-600"><i class="fa-solid fa-circle-info text-blue-600 mr-2"></i> Se habilitará el cierre cuando la Auditoría Global esté al 100%.</div>
                 <div class="flex items-center gap-4 w-full md:w-auto">
                     <div id="msg-envio" class="text-sm font-bold hidden"></div>
                     <button id="btn-enviar-rrhh" onclick="enviarReporteRRHH()" disabled class="w-full md:w-auto bg-gray-400 cursor-not-allowed text-white px-6 py-3 rounded-lg font-bold transition shadow-md"><i class="fa-solid fa-lock mr-2"></i> Certificar y Enviar a RRHH</button>
                 </div>
             </div>
-            <div id="panel-solo-lectura" class="p-4 text-center text-sm font-medium text-gray-500 bg-blue-50 rounded-xl border border-blue-100 hidden"><i class="fa-solid fa-eye text-blue-500 mr-2"></i> Perfil "Reportador". Solo edición de su plantilla. Cierre bloqueado.</div>
+            <div id="panel-solo-lectura" class="p-4 text-center text-sm font-medium text-gray-500 bg-blue-50 rounded-xl border border-blue-100 hidden"><i class="fa-solid fa-eye text-blue-500 mr-2"></i> Perfil "Reportador". Solo edición local. Cierre bloqueado.</div>
         </div>
     </div>
 
@@ -177,7 +193,6 @@
     <script>
         const API_BASE = window.location.origin; 
         let currentUser = null; let currentRole = null; let semanaData = null; let estructuraOrganizativa = {}; 
-
         const ESTATUS_PERMITIDOS = ["", "Asistencia Normal", "Teletrabajo", "Reposo", "Vacaciones", "Permiso otorgado", "Falta Injustificada", "Dia Descanso Legal", "Dia Libre Compensatorio"];
 
         function mostrarVista(vistaId) {
@@ -208,6 +223,7 @@
                         if(currentRole === "Reportador") {
                             document.getElementById('panel-cierre-unidad').classList.add('hidden');
                             document.getElementById('panel-solo-lectura').classList.remove('hidden');
+                            document.getElementById('contenedor-tabla-otros').classList.add('hidden');
                         } else {
                             document.getElementById('panel-cierre-unidad').classList.remove('hidden');
                             document.getElementById('panel-cierre-unidad').classList.add('flex');
@@ -225,43 +241,62 @@
             document.getElementById('username').value = ''; document.getElementById('password').value = ''; mostrarVista('view-login');
         }
 
+        // ==========================================
+        // DIBUJADO DE TABLAS Y AUDITORÍA
+        // ==========================================
+        function armarCabeceraFechas(fechasArray) {
+            const diasSemana = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+            let html = `<tr><th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase sticky left-0 bg-gray-100 z-10 border-r border-gray-200 shadow-sm">Personal Activo</th>`;
+            fechasArray.forEach(f => {
+                let dt = new Date(f + "T12:00:00");
+                html += `<th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase border-r"><div class="text-blue-600 font-bold text-[10px] uppercase mb-0.5">${diasSemana[dt.getDay()]}</div><div class="font-bold text-gray-700 text-sm">${dt.getDate()}/${dt.getMonth()+1}</div></th>`;
+            });
+            html += `</tr>`;
+            return html;
+        }
+
         async function cargarDatosUnidad() {
             try {
                 const res = await fetch(`${API_BASE}/api/mi-asistencia/${currentUser}`);
                 const data = await res.json();
-                const tbody = document.getElementById('tabla-body');
                 
-                if(!data.semana_activa) { tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-red-600 font-bold">Semana cerrada.</td></tr>'; return; }
-                if(data.empleados.length === 0) { tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-gray-500">Agregue P00s en su panel de Gestión para iniciar.</td></tr>'; return; }
+                const tbodyMios = document.getElementById('tabla-body-mios');
+                const tbodyOtros = document.getElementById('tabla-body-otros');
+                
+                if(!data.semana_activa) { tbodyMios.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-red-600 font-bold">Semana cerrada.</td></tr>'; return; }
 
                 semanaData = { start: data.fecha_inicio, end: data.fecha_fin, locked: data.bloqueado_por_envio, ausentismos: data.ausentismos_fijos };
                 document.getElementById('unidad-rango-fechas').innerHTML = `<i class="fa-regular fa-calendar text-blue-600 mr-2"></i><b>${data.fecha_inicio}</b> al <b>${data.fecha_fin}</b>`;
                 
-                const fechas = [];
+                const fechas7 = [];
                 let curr = new Date(data.fecha_inicio + "T12:00:00"); let fin = new Date(data.fecha_fin + "T12:00:00");
-                while(curr <= fin) { fechas.push(curr.toISOString().split('T')[0]); curr.setDate(curr.getDate() + 1); }
-                const fechas7 = fechas.slice(0, 7);
+                while(curr <= fin) { fechas7.push(curr.toISOString().split('T')[0]); curr.setDate(curr.getDate() + 1); }
                 
-                const ths = document.querySelector('#tabla-asistencia thead tr').querySelectorAll('th');
-                const diasSemana = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-                fechas7.forEach((f, index) => {
-                    let dt = new Date(f + "T12:00:00");
-                    if(ths[index + 1]) ths[index + 1].innerHTML = `<div class="text-blue-600 font-bold text-[10px] uppercase mb-0.5">${diasSemana[dt.getDay()]}</div><div class="font-bold text-gray-700 text-sm">${dt.getDate()}/${dt.getMonth()+1}</div>`;
-                });
+                // Configurar Cabeceras
+                document.getElementById('thead-mios').innerHTML = armarCabeceraFechas(fechas7.slice(0, 7));
+                document.getElementById('thead-otros').innerHTML = armarCabeceraFechas(fechas7.slice(0, 7));
 
-                tbody.innerHTML = ''; let diasTotales = data.empleados.length * 7; let diasLlenos = 0;
+                tbodyMios.innerHTML = ''; tbodyOtros.innerHTML = '';
+                let diasTotales = data.empleados.length * 7; 
+                let diasLlenos = 0;
+                
+                let faltantesMios = [];
+                let faltantesOtros = [];
+                let miosCount = 0;
+                let otrosCount = 0;
 
                 data.empleados.forEach(emp => {
-                    const tr = document.createElement('tr'); tr.className = "hover:bg-blue-50 border-b border-gray-100";
+                    const tr = document.createElement('tr'); 
+                    tr.className = "hover:bg-blue-50 border-b border-gray-100";
                     
-                    // Indicador de solo lectura en el nombre
-                    let iconoLectura = !emp.editable ? '<i class="fa-solid fa-lock text-gray-300 text-xs ml-2" title="Solo Lectura (Reportado por otro usuario)"></i>' : '';
-                    
+                    let candado = !emp.editable ? '<i class="fa-solid fa-lock text-gray-400 text-xs ml-2" title="Solo Lectura"></i>' : '';
                     tr.innerHTML = `<td class="px-4 py-3 text-sm font-bold text-gray-800 bg-white border-r">
-                        <div class="flex items-center justify-between"><div class="truncate w-44" title="${emp.nombres_apellidos}">${emp.nombres_apellidos}</div>${iconoLectura}</div>
+                        <div class="flex items-center justify-between"><div class="truncate w-44" title="${emp.nombres_apellidos}">${emp.nombres_apellidos}</div>${candado}</div>
                         <div class="text-[10px] text-gray-500 mt-1 truncate w-44" title="${emp.gerencia}"><span class="text-blue-600 bg-blue-50 px-1 rounded mr-1">P00: ${emp.p00}</span> ${emp.gerencia}</div></td>`;
                     
-                    fechas7.forEach(f => {
+                    let diasFaltantesEmp = 0;
+
+                    fechas7.slice(0, 7).forEach(f => {
                         const td = document.createElement('td'); td.className = "px-2 py-3 border-r";
                         const estActual = (emp.asistencia[f]) ? emp.asistencia[f].estatus : "";
                         const ausentismoActivo = semanaData.ausentismos.find(a => a.p00 === emp.p00 && f >= a.fecha_inicio && f <= a.fecha_fin);
@@ -276,11 +311,10 @@
                             diasLlenos++;
                         } else {
                             if(estActual !== "") diasLlenos++;
+                            else diasFaltantesEmp++; // Sumar a faltantes
                             
-                            // Bloqueo visual para Solo Lectura o Semana Cerrada
                             if(semanaData.locked || !emp.editable) { 
                                 select.disabled = true; select.classList.add("cursor-not-allowed", "opacity-90"); 
-                                if(!emp.editable) select.title = "Solo Lectura (Reportado por otro usuario)";
                             }
                             
                             ESTATUS_PERMITIDOS.forEach(est => {
@@ -289,13 +323,12 @@
                                 if(est === estActual) opt.selected = true; select.appendChild(opt);
                             });
                             
-                            // Lógica de Colores
+                            // COLORES
                             if(estActual === "Falta Injustificada") select.classList.add("bg-red-50", "text-red-700", "font-bold", "border-red-300");
                             else if(estActual === "Asistencia Normal") select.classList.add("bg-green-50", "text-green-700", "border-green-300");
                             else if(estActual === "Teletrabajo") select.classList.add("bg-cyan-50", "text-cyan-700", "font-bold", "border-cyan-300");
                             else if(["Reposo", "Vacaciones", "Permiso otorgado"].includes(estActual)) select.classList.add("bg-purple-50", "text-purple-700", "font-bold", "border-purple-300");
                             
-                            // Alerta visual roja brillante si es "Solo lectura" y el otro no ha reportado nada
                             if(estActual === "" && !emp.editable && !semanaData.locked) {
                                 select.classList.add("bg-red-50", "text-red-500", "font-bold", "border-red-400");
                             }
@@ -306,9 +339,30 @@
                         }
                         td.appendChild(select); tr.appendChild(td);
                     });
-                    tbody.appendChild(tr);
+
+                    // Auditoría: Separar en las dos tablas
+                    if (emp.editable) {
+                        tbodyMios.appendChild(tr);
+                        miosCount++;
+                        if (diasFaltantesEmp > 0) faltantesMios.push({nombre: emp.nombres_apellidos, dias: diasFaltantesEmp});
+                    } else {
+                        tbodyOtros.appendChild(tr);
+                        otrosCount++;
+                        if (diasFaltantesEmp > 0) faltantesOtros.push({nombre: emp.nombres_apellidos, gerencia: emp.gerencia, dias: diasFaltantesEmp});
+                    }
                 });
 
+                if (miosCount === 0) tbodyMios.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-gray-500">No ha reclamado personal. Use el panel de Gestión para vincular sus P00.</td></tr>';
+                if (otrosCount === 0) {
+                    tbodyOtros.innerHTML = '<tr><td colspan="8" class="px-6 py-6 text-center text-gray-500">No hay personal externo en su jurisdicción.</td></tr>';
+                } else if (currentRole === 'Cierre de Unidad') {
+                    document.getElementById('contenedor-tabla-otros').classList.remove('hidden');
+                }
+
+                // Renderizar Panel de Auditoría
+                renderAuditoria(faltantesMios, faltantesOtros, miosCount, otrosCount);
+
+                // Barra de Progreso Global
                 const bar = document.getElementById('progress-bar'); const txt = document.getElementById('progress-text');
                 const btn = document.getElementById('btn-enviar-rrhh'); const msgBox = document.getElementById('msg-envio');
                 let pct = diasTotales > 0 ? Math.round((diasLlenos / diasTotales) * 100) : 0;
@@ -316,13 +370,53 @@
                 
                 if(semanaData.locked && currentRole !== "Reportador") {
                     bar.classList.replace('bg-green-500', 'bg-blue-600'); txt.classList.add('text-blue-700');
-                    btn.innerHTML = 'Reporte Certificado'; btn.className = "bg-green-600 text-white px-6 py-3 rounded-lg font-bold"; btn.disabled = true;
-                    msgBox.innerHTML = `<span class="text-green-700">Entregado a Nómina</span>`; msgBox.classList.remove('hidden');
+                    btn.innerHTML = 'Reporte Certificado y Cerrado'; btn.className = "bg-green-600 text-white px-6 py-3 rounded-lg font-bold w-full md:w-auto"; btn.disabled = true;
+                    msgBox.innerHTML = `<span class="text-green-700"><i class="fa-solid fa-check-double"></i> Entregado a Nómina</span>`; msgBox.classList.remove('hidden');
                 } else if(!semanaData.locked && currentRole !== "Reportador") {
-                    if(pct >= 100 && diasTotales > 0) { btn.disabled = false; btn.classList.replace('bg-gray-400', 'bg-blue-600'); }
-                    else { btn.disabled = true; btn.classList.replace('bg-blue-600', 'bg-gray-400'); }
+                    if(pct >= 100 && diasTotales > 0 && faltantesMios.length === 0 && faltantesOtros.length === 0) { 
+                        btn.disabled = false; btn.classList.replace('bg-gray-400', 'bg-blue-600'); 
+                    } else { 
+                        btn.disabled = true; btn.classList.replace('bg-blue-600', 'bg-gray-400'); 
+                    }
                 }
-            } catch (error) { document.getElementById('tabla-body').innerHTML = '<tr><td colspan="8" class="text-center text-red-500 p-4">Error de conexión.</td></tr>'; }
+            } catch (error) { document.getElementById('tabla-body-mios').innerHTML = '<tr><td colspan="8" class="text-center text-red-500 p-4">Error de conexión.</td></tr>'; }
+        }
+
+        function renderAuditoria(faltantesMios, faltantesOtros, miosCount, otrosCount) {
+            document.getElementById('panel-auditoria').classList.remove('hidden');
+            const divMios = document.getElementById('audit-mios');
+            const divOtros = document.getElementById('audit-otros');
+            
+            // Columna 1: Mi Personal
+            let htmlMios = `<h3 class="font-bold text-sm text-gray-700 mb-2"><i class="fa-solid fa-user-edit text-blue-500 mr-1"></i> Mi Personal Editable (${miosCount})</h3>`;
+            if (miosCount === 0) {
+                htmlMios += `<div class="text-gray-500 text-xs italic">Sin personal asignado.</div>`;
+            } else if (faltantesMios.length === 0) {
+                htmlMios += `<div class="text-green-600 text-sm font-bold bg-green-50 p-2 rounded border border-green-200"><i class="fa-solid fa-check-circle mr-1"></i> ¡100% Completado!</div>`;
+            } else {
+                htmlMios += `<div class="text-red-600 text-sm font-bold mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Faltan ${faltantesMios.length} empleados por completar:</div><ul class="text-xs text-gray-600 list-disc pl-5 space-y-1">`;
+                faltantesMios.forEach(f => htmlMios += `<li><b>${f.nombre}</b> <span class="text-red-500">(${f.dias} días sin estatus)</span></li>`);
+                htmlMios += `</ul>`;
+            }
+            divMios.innerHTML = htmlMios;
+
+            // Columna 2: Resto de la Jurisdicción (Solo Cierre de Unidad)
+            if (currentRole === 'Cierre de Unidad') {
+                divOtros.classList.remove('hidden');
+                let htmlOtros = `<h3 class="font-bold text-sm text-gray-700 mb-2"><i class="fa-solid fa-users text-purple-500 mr-1"></i> Resto de la Jurisdicción (${otrosCount})</h3>`;
+                if (otrosCount === 0) {
+                    htmlOtros += `<div class="text-gray-500 text-xs italic">No hay personal externo.</div>`;
+                } else if(faltantesOtros.length === 0) {
+                    htmlOtros += `<div class="text-green-600 text-sm font-bold bg-green-50 p-2 rounded border border-green-200"><i class="fa-solid fa-check-circle mr-1"></i> ¡100% Reportado por terceros!</div>`;
+                } else {
+                    htmlOtros += `<div class="text-orange-600 text-sm font-bold mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Faltan ${faltantesOtros.length} empleados reportados por otros:</div><ul class="text-xs text-gray-600 list-disc pl-5 space-y-1">`;
+                    faltantesOtros.forEach(f => htmlOtros += `<li><b>${f.nombre}</b> <span class="text-[10px] text-gray-400">(${f.gerencia})</span> <span class="text-orange-500 font-bold">- faltan ${f.dias} días</span></li>`);
+                    htmlOtros += `</ul>`;
+                }
+                divOtros.innerHTML = htmlOtros;
+            } else {
+                divOtros.classList.add('hidden');
+            }
         }
 
         async function registrarDiaVuelo(p00, fecha, estatus, selectElement) {
@@ -340,7 +434,7 @@
         }
 
         async function enviarReporteRRHH() {
-            if(!confirm("¿Certificar reporte? Se bloqueará la edición de esta jurisdicción.")) return;
+            if(!confirm("CERTIFICACIÓN FINAL:\n\nAl confirmar, toda la jurisdicción será bloqueada y enviada a Recursos Humanos para el cálculo de nómina. ¿Continuar?")) return;
             const btn = document.getElementById('btn-enviar-rrhh'); btn.disabled = true;
             try {
                 const res = await fetch(`${API_BASE}/api/enviar-a-rrhh`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ unidad_nombre: currentUser, rol_usuario: currentRole }) });
@@ -349,6 +443,9 @@
             } catch (e) { alert("Error."); btn.disabled = false; }
         }
 
+        // ==========================================
+        // AGREGAR PERSONAL LOCAL
+        // ==========================================
         async function agregarEmpleadoManual(e) {
             e.preventDefault();
             const btn = document.getElementById('btn-add-manual'); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; btn.disabled = true;
@@ -359,13 +456,13 @@
                 if(res.ok) { document.getElementById('form-add-empleado').reset(); cargarDatosUnidad(); }
                 else alert(data.detail);
             } catch(e) { alert("Error al registrar empleado."); }
-            btn.innerHTML = 'Vincular P00 a mi Plantilla'; btn.disabled = false;
+            btn.innerHTML = 'Vincular'; btn.disabled = false;
         }
 
         async function cargarPersonalExcel() {
             const fileInput = document.getElementById('file-personal-unidad');
             if(!fileInput.files[0]) return alert("Seleccione el archivo Excel con el personal.");
-            const btn = document.getElementById('btn-add-excel'); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Procesando...'; btn.disabled = true;
+            const btn = document.getElementById('btn-add-excel'); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; btn.disabled = true;
             
             const formData = new FormData(); 
             formData.append("file", fileInput.files[0]); formData.append("username", currentUser);
@@ -375,7 +472,7 @@
                 if(res.ok) { alert(data.mensaje); fileInput.value = ""; cargarDatosUnidad(); }
                 else alert("Error: " + data.detail);
             } catch(e) { alert("Error de red procesando archivo."); }
-            btn.innerHTML = 'Procesar Archivo Local'; btn.disabled = false;
+            btn.innerHTML = 'Procesar'; btn.disabled = false;
         }
 
         // ==========================================
