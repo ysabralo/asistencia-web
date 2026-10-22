@@ -3,31 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Asistencia Movilnet | Portal Web</title>
-    <!-- Tailwind CSS (Framework de diseño moderno) -->
+    <title>Asistencia Movilnet ERP | Portal Web</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Iconos -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
-        /* Ocultar vistas por defecto */
         .view-hidden { display: none; }
     </style>
 </head>
 <body class="bg-gray-100 font-sans antialiased min-h-screen flex flex-col">
 
-    <!-- ========================================== -->
-    <!-- BARRA DE NAVEGACIÓN SUPERIOR               -->
-    <!-- ========================================== -->
-    <nav id="navbar" class="bg-blue-800 text-white shadow-lg view-hidden">
+    <!-- BARRA DE NAVEGACIÓN -->
+    <nav id="navbar" class="bg-blue-900 text-white shadow-lg view-hidden">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-16">
                 <div class="flex items-center">
-                    <i class="fa-solid fa-building-user text-2xl mr-3"></i>
-                    <span class="font-bold text-xl">Asistencia Movilnet</span>
+                    <i class="fa-solid fa-sitemap text-2xl mr-3"></i>
+                    <span class="font-bold text-xl tracking-wide">Movilnet ERP | Asistencia</span>
                 </div>
                 <div class="flex items-center space-x-4">
-                    <span id="nav-user-info" class="text-sm font-medium bg-blue-700 px-3 py-1 rounded-full"></span>
-                    <button onclick="cerrarSesion()" class="hover:bg-red-600 bg-red-500 px-3 py-1 rounded transition text-sm font-bold shadow">
+                    <span id="nav-user-info" class="text-sm font-medium bg-blue-800 px-4 py-1.5 rounded-full border border-blue-700"></span>
+                    <button onclick="cerrarSesion()" class="hover:bg-red-600 bg-red-500 px-4 py-1.5 rounded-full transition text-sm font-bold shadow">
                         <i class="fa-solid fa-right-from-bracket mr-1"></i> Salir
                     </button>
                 </div>
@@ -35,167 +30,186 @@
         </div>
     </nav>
 
-    <!-- ========================================== -->
-    <!-- PANTALLA 1: LOGIN                          -->
-    <!-- ========================================== -->
+    <!-- PANTALLA 1: LOGIN -->
     <div id="view-login" class="flex-grow flex items-center justify-center p-4">
-        <div class="bg-white p-8 rounded-xl shadow-2xl w-full max-w-md border-t-4 border-blue-600">
+        <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border-t-4 border-blue-700">
             <div class="text-center mb-8">
-                <div class="bg-blue-100 text-blue-600 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 shadow-inner">
+                <div class="bg-blue-50 text-blue-700 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4 shadow-inner border border-blue-100">
                     <i class="fa-solid fa-fingerprint text-4xl"></i>
                 </div>
-                <h2 class="text-2xl font-bold text-gray-800">Control de Asistencia</h2>
-                <p class="text-gray-500 text-sm mt-1">Ingrese sus credenciales corporativas</p>
+                <h2 class="text-2xl font-bold text-gray-800">Acceso Corporativo</h2>
+                <p class="text-gray-500 text-sm mt-1">Módulo de Asistencia y Novedades</p>
             </div>
             
-            <form id="login-form" onsubmit="iniciarSesion(event)" class="space-y-6">
+            <form id="login-form" onsubmit="iniciarSesion(event)" class="space-y-5">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Usuario / Gerencia</label>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Usuario / Unidad</label>
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <i class="fa-solid fa-user text-gray-400"></i>
                         </div>
-                        <input type="text" id="username" class="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition shadow-sm" required>
+                        <input type="text" id="username" class="pl-10 w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition shadow-sm outline-none" required>
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+                    <label class="block text-sm font-bold text-gray-700 mb-1">Contraseña</label>
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <i class="fa-solid fa-lock text-gray-400"></i>
                         </div>
-                        <input type="password" id="password" class="pl-10 w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition shadow-sm" required>
+                        <input type="password" id="password" class="pl-10 w-full p-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition shadow-sm outline-none" required>
                     </div>
                 </div>
-                <button type="submit" id="btn-login" class="w-full bg-blue-600 text-white p-3 rounded-lg font-bold hover:bg-blue-700 transition shadow-lg flex justify-center items-center">
-                    Ingresar al Portal
+                <button type="submit" id="btn-login" class="w-full bg-blue-700 text-white p-3.5 rounded-lg font-bold hover:bg-blue-800 transition shadow-lg flex justify-center items-center mt-2">
+                    Ingresar al Sistema
                 </button>
-                <div id="login-error" class="text-red-500 text-sm text-center hidden font-medium bg-red-50 p-2 rounded border border-red-200"></div>
+                <div id="login-error" class="text-red-600 text-sm text-center hidden font-medium bg-red-50 p-3 rounded-lg border border-red-200"></div>
             </form>
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- PANTALLA 2: DASHBOARD UNIDAD PRINCIPAL     -->
-    <!-- ========================================== -->
+    <!-- PANTALLA 2: DASHBOARD UNIDADES (Reportador / Cierre) -->
     <div id="view-unidad" class="view-hidden flex-grow p-4 md:p-6">
         <div class="max-w-7xl mx-auto space-y-6">
             
-            <!-- Cabecera de Estado -->
-            <div class="bg-white rounded-xl shadow-md p-6 flex flex-col md:flex-row justify-between items-center border-l-4 border-blue-500">
+            <div class="bg-white rounded-xl shadow-md p-6 flex flex-col md:flex-row justify-between items-center border-l-4 border-blue-600">
                 <div>
-                    <h1 class="text-2xl font-bold text-gray-800">Reporte Semanal de Asistencia</h1>
-                    <p id="unidad-rango-fechas" class="text-gray-500 mt-1"><i class="fa-regular fa-calendar mr-2"></i>Cargando fechas...</p>
+                    <h1 class="text-2xl font-bold text-gray-800">Control de Asistencia</h1>
+                    <p id="unidad-rango-fechas" class="text-gray-600 mt-1 font-medium"><i class="fa-regular fa-calendar text-blue-600 mr-2"></i>Cargando periodo...</p>
                 </div>
-                <div class="mt-4 md:mt-0 text-center md:text-right">
-                    <div class="text-sm text-gray-600 mb-1 font-medium">Progreso de Entrega</div>
+                <div class="mt-4 md:mt-0 text-center md:text-right bg-gray-50 p-3 rounded-lg border border-gray-200 min-w-[250px]">
+                    <div class="text-xs text-gray-500 mb-1 font-bold uppercase tracking-wider">Cumplimiento de Reporte</div>
                     <div class="flex items-center space-x-3">
-                        <div class="w-48 bg-gray-200 rounded-full h-4 overflow-hidden shadow-inner">
-                            <div id="progress-bar" class="bg-green-500 h-4 transition-all duration-500" style="width: 0%"></div>
+                        <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden shadow-inner">
+                            <div id="progress-bar" class="bg-green-500 h-3 transition-all duration-500" style="width: 0%"></div>
                         </div>
-                        <span id="progress-text" class="font-bold text-gray-800">0%</span>
+                        <span id="progress-text" class="font-bold text-gray-800 text-sm">0%</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Tabla Interactiva -->
             <div class="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200" id="tabla-asistencia">
-                        <thead class="bg-gray-50">
+                        <thead class="bg-gray-100">
                             <tr>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 border-r border-gray-200">Empleado</th>
-                                <!-- Los días se generarán por JS -->
-                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Día 1</th>
-                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Día 2</th>
-                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Día 3</th>
-                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Día 4</th>
-                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Día 5</th>
-                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Día 6</th>
-                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Día 7</th>
+                                <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider sticky left-0 bg-gray-100 z-10 border-r border-gray-200 shadow-sm">Personal Activo</th>
+                                <th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Día 1</th>
+                                <th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Día 2</th>
+                                <th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Día 3</th>
+                                <th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Día 4</th>
+                                <th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Día 5</th>
+                                <th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Día 6</th>
+                                <th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase tracking-wider">Día 7</th>
                             </tr>
                         </thead>
-                        <tbody id="tabla-body" class="bg-white divide-y divide-gray-200">
-                            <tr><td colspan="8" class="px-6 py-10 text-center text-gray-500"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Cargando personal...</td></tr>
+                        <tbody id="tabla-body" class="bg-white divide-y divide-gray-100">
+                            <tr><td colspan="8" class="px-6 py-10 text-center text-gray-500"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Sincronizando con ERP...</td></tr>
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            <!-- Botonera -->
-            <div class="flex flex-col md:flex-row justify-end items-center p-4 bg-gray-50 rounded-xl shadow-inner border border-gray-200 gap-4">
-                <div id="msg-envio" class="text-sm font-medium hidden"></div>
-                <button id="btn-enviar-rrhh" onclick="enviarReporteRRHH()" disabled class="w-full md:w-auto bg-gray-400 cursor-not-allowed text-white px-6 py-3 rounded-lg font-bold transition shadow">
-                    <i class="fa-solid fa-paper-plane mr-2"></i> Enviar Reporte Definitivo a RRHH
-                </button>
+            <!-- CONTENEDOR DE CIERRE (Solo visible para "Cierre de Unidad") -->
+            <div id="panel-cierre-unidad" class="flex flex-col md:flex-row justify-between items-center p-5 bg-gray-50 rounded-xl shadow-inner border border-gray-200 gap-4 hidden">
+                <div class="text-sm font-medium text-gray-600">
+                    <i class="fa-solid fa-circle-info text-blue-600 mr-2"></i> Perfil autorizado para Certificación y Cierre.
+                </div>
+                <div class="flex items-center gap-4 w-full md:w-auto">
+                    <div id="msg-envio" class="text-sm font-bold hidden"></div>
+                    <button id="btn-enviar-rrhh" onclick="enviarReporteRRHH()" disabled class="w-full md:w-auto bg-gray-400 cursor-not-allowed text-white px-6 py-3 rounded-lg font-bold transition shadow-md">
+                        <i class="fa-solid fa-lock mr-2"></i> Certificar y Enviar a RRHH
+                    </button>
+                </div>
+            </div>
+            
+            <div id="panel-solo-lectura" class="p-4 text-center text-sm font-medium text-gray-500 bg-blue-50 rounded-xl border border-blue-100 hidden">
+                <i class="fa-solid fa-eye text-blue-500 mr-2"></i> Su perfil es "Reportador". Las modificaciones se guardan en tiempo real. El Cierre definitivo lo realiza la Jefatura de Unidad.
             </div>
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- PANTALLA 3: DASHBOARD RRHH                 -->
-    <!-- ========================================== -->
+    <!-- PANTALLA 3: DASHBOARD RRHH -->
     <div id="view-rrhh" class="view-hidden flex-grow p-4 md:p-6">
         <div class="max-w-7xl mx-auto space-y-6">
-            <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-green-600 flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
-                    <h1 class="text-2xl font-bold text-gray-800">Centro de Comando de Recursos Humanos</h1>
-                    <p class="text-gray-500 mt-1">Gestión, auditoría y cierre de la nómina semanal.</p>
+                    <h1 class="text-2xl font-bold text-gray-800">Centro de Comando Central | RRHH</h1>
+                    <p class="text-gray-500 mt-1 font-medium">Auditoría global, nómina y movimientos de estructura.</p>
                 </div>
-                <div id="rrhh-badge-semana" class="bg-gray-100 text-gray-800 px-4 py-2 rounded-lg font-bold shadow-inner border border-gray-200 text-center">
-                    Semana: Consultando...
+                <div id="rrhh-badge-semana" class="bg-gray-100 text-gray-800 px-5 py-2.5 rounded-lg font-bold shadow-inner border border-gray-200 text-center">
+                    Consultando ERP...
                 </div>
             </div>
             
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <!-- Tarjeta 1: Apertura de Semana -->
-                <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100 h-fit">
-                    <div class="flex items-center mb-4">
-                        <div class="bg-green-100 text-green-600 p-3 rounded-lg mr-4"><i class="fa-solid fa-folder-open text-xl"></i></div>
-                        <h2 class="text-xl font-bold">1. Aperturar Semana</h2>
-                    </div>
-                    <p class="text-sm text-gray-600 mb-4">Cargue el archivo maestro encriptado para habilitar la plataforma a las Gerencias.</p>
-                    <input type="file" id="file-master" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200 mb-4 border border-gray-300"/>
-                    <button onclick="importarSemanaMaster()" class="w-full bg-green-600 text-white py-2 rounded-lg font-bold hover:bg-green-700 transition shadow">Subir y Habilitar Sistema</button>
-                </div>
-
-                <!-- Tarjeta 2: Monitoreo Global -->
-                <div class="bg-white rounded-xl shadow-md p-6 col-span-1 md:col-span-2 border border-gray-100 flex flex-col">
-                    <div class="flex items-center justify-between mb-4">
-                        <div class="flex items-center">
-                            <div class="bg-purple-100 text-purple-600 p-3 rounded-lg mr-4"><i class="fa-solid fa-chart-pie text-xl"></i></div>
-                            <h2 class="text-xl font-bold">2. Monitoreo de Gerencias</h2>
-                        </div>
-                        <button onclick="cargarMonitoreoRRHH()" class="text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1 rounded-lg transition" title="Actualizar datos"><i class="fa-solid fa-rotate-right mr-1"></i> Actualizar</button>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- TARJETA 1: Movimientos de Personal -->
+                <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100 flex flex-col">
+                    <div class="flex items-center mb-5 pb-4 border-b border-gray-100">
+                        <div class="bg-blue-100 text-blue-700 p-3 rounded-lg mr-4 shadow-sm"><i class="fa-solid fa-users-gear text-xl"></i></div>
+                        <h2 class="text-lg font-bold text-gray-800">Movimientos de Personal</h2>
                     </div>
                     
-                    <div class="overflow-y-auto flex-grow max-h-64 mb-4 border border-gray-200 rounded-lg shadow-inner bg-gray-50">
+                    <form id="form-movimientos" onsubmit="ejecutarMovimiento(event)" class="space-y-4 flex-grow">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Código Empleado</label>
+                            <input type="text" id="mov_p00" placeholder="Ej: 212345" pattern="^2[0-9]{5}$" title="El código P00 debe tener 6 dígitos y comenzar con 2" class="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm font-mono uppercase" required>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Acción / Novedad</label>
+                            <select id="mov_tipo" onchange="toggleUnidadDestino()" class="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" required>
+                                <option value="">-- Seleccione Acción --</option>
+                                <option value="Egreso">Procesar Egreso / Liquidación</option>
+                                <option value="Transferencia">Transferencia de Unidad</option>
+                            </select>
+                        </div>
+                        <div id="div_destino" class="hidden">
+                            <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Unidad Destino</label>
+                            <input type="text" id="mov_destino" placeholder="Nombre exacto de la Unidad" class="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm">
+                        </div>
+                        <button type="submit" id="btn-movimiento" class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-bold hover:bg-blue-700 transition shadow mt-2">
+                            Ejecutar Movimiento
+                        </button>
+                    </form>
+                </div>
+
+                <!-- TARJETA 2: Auditoría y Cierre -->
+                <div class="bg-white rounded-xl shadow-md p-6 col-span-1 lg:col-span-2 border border-gray-100 flex flex-col">
+                    <div class="flex items-center justify-between mb-5 pb-4 border-b border-gray-100">
+                        <div class="flex items-center">
+                            <div class="bg-purple-100 text-purple-700 p-3 rounded-lg mr-4 shadow-sm"><i class="fa-solid fa-satellite-dish text-xl"></i></div>
+                            <h2 class="text-lg font-bold text-gray-800">Auditoría de Entregas</h2>
+                        </div>
+                        <button onclick="cargarMonitoreoRRHH()" class="text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition font-medium text-sm border border-blue-200">
+                            <i class="fa-solid fa-rotate-right mr-1"></i> Actualizar
+                        </button>
+                    </div>
+                    
+                    <div class="overflow-y-auto flex-grow max-h-64 mb-5 border border-gray-200 rounded-lg shadow-inner bg-gray-50">
                         <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-100 sticky top-0 shadow-sm">
+                            <thead class="bg-gray-200 sticky top-0 shadow-sm">
                                 <tr>
-                                    <th class="px-4 py-3 text-left text-xs font-bold text-gray-600 uppercase">Unidad / Gerencia</th>
-                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase">Plantilla</th>
-                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase">Estatus</th>
-                                    <th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase">Fecha Envío</th>
+                                    <th class="px-4 py-2.5 text-left text-xs font-bold text-gray-700 uppercase">Gerencia / Unidad</th>
+                                    <th class="px-4 py-2.5 text-center text-xs font-bold text-gray-700 uppercase">Plantilla Activa</th>
+                                    <th class="px-4 py-2.5 text-center text-xs font-bold text-gray-700 uppercase">Estatus</th>
+                                    <th class="px-4 py-2.5 text-center text-xs font-bold text-gray-700 uppercase">Cierre</th>
                                 </tr>
                             </thead>
                             <tbody id="tabla-monitoreo" class="bg-white divide-y divide-gray-100">
-                                <tr><td colspan="4" class="px-4 py-6 text-center text-gray-500 text-sm">Cargando unidades...</td></tr>
+                                <tr><td colspan="4" class="px-4 py-8 text-center text-gray-500 text-sm">Consultando Base de Datos Central...</td></tr>
                             </tbody>
                         </table>
                     </div>
 
-                    <button onclick="descargarConsolidadoNomina()" class="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700 transition shadow flex justify-center items-center">
-                        <i class="fa-solid fa-file-excel mr-2 text-xl"></i> Descargar Consolidado para Nómina
+                    <button onclick="descargarConsolidadoNomina()" class="w-full bg-green-600 text-white py-3.5 rounded-xl font-bold hover:bg-green-700 transition shadow-lg flex justify-center items-center text-base">
+                        <i class="fa-solid fa-file-excel mr-2 text-xl"></i> Exportar Nómina Consolidada (Excel)
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- LÓGICA JAVASCRIPT (FRONTEND SAAS)          -->
-    <!-- ========================================== -->
+    <!-- SCRIPTS -->
     <script>
         const API_BASE = window.location.origin; 
         
@@ -205,10 +219,9 @@
         
         const ESTATUS_PERMITIDOS = [
             "", "Asistencia Normal", "Reposo", "Vacaciones", 
-            "Permiso otorgado", "Falta Injustificada", "Dia Descanso", "Dia Compensatorio"
+            "Permiso otorgado", "Falta Injustificada", "Dia Descanso Legal", "Dia Libre Compensatorio"
         ];
 
-        // --- SISTEMA DE NAVEGACIÓN Y VISTAS ---
         function mostrarVista(vistaId) {
             document.getElementById('view-login').style.display = 'none';
             document.getElementById('view-unidad').style.display = 'none';
@@ -216,7 +229,6 @@
             document.getElementById(vistaId).style.display = 'flex';
         }
 
-        // --- LOGIN ---
         async function iniciarSesion(e) {
             e.preventDefault();
             const u = document.getElementById('username').value;
@@ -224,7 +236,7 @@
             const btn = document.getElementById('btn-login');
             const err = document.getElementById('login-error');
             
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Validando...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Autenticando...';
             btn.disabled = true;
             err.classList.add('hidden');
 
@@ -242,13 +254,14 @@
                     currentRole = data.rol;
                     
                     document.getElementById('navbar').style.display = 'block';
-                    document.getElementById('nav-user-info').innerHTML = `<i class="fa-solid fa-user mr-1"></i> ${currentUser} | ${currentRole}`;
+                    document.getElementById('nav-user-info').innerHTML = `<i class="fa-solid fa-user mr-1"></i> ${currentUser} <span class="mx-2">|</span> <span class="text-blue-200">${currentRole}</span>`;
                     
                     if(currentRole === "Recursos Humanos") {
                         mostrarVista('view-rrhh');
-                        cargarMonitoreoRRHH(); // Llama directo al reporte de gerencias
+                        cargarMonitoreoRRHH(); 
                     } else {
                         mostrarVista('view-unidad');
+                        configurarPerfilUnidad();
                         cargarDatosUnidad();
                     }
                 } else {
@@ -256,11 +269,11 @@
                     err.classList.remove('hidden');
                 }
             } catch (error) {
-                err.innerText = "Error de conexión con el servidor.";
+                err.innerText = "Falla de red contactando al ERP.";
                 err.classList.remove('hidden');
             }
             
-            btn.innerHTML = 'Ingresar al Portal';
+            btn.innerHTML = 'Ingresar al Sistema';
             btn.disabled = false;
         }
 
@@ -273,27 +286,36 @@
             mostrarVista('view-login');
         }
 
-        // --- LÓGICA DE UNIDAD PRINCIPAL (GRID) ---
+        function configurarPerfilUnidad() {
+            if(currentRole === "Reportador") {
+                document.getElementById('panel-cierre-unidad').classList.add('hidden');
+                document.getElementById('panel-solo-lectura').classList.remove('hidden');
+            } else {
+                document.getElementById('panel-cierre-unidad').classList.remove('hidden');
+                document.getElementById('panel-cierre-unidad').classList.add('flex');
+                document.getElementById('panel-solo-lectura').classList.add('hidden');
+            }
+        }
+
         async function cargarDatosUnidad() {
             try {
                 const res = await fetch(`${API_BASE}/api/mi-asistencia/${currentUser}`);
                 const data = await res.json();
-                
                 const tbody = document.getElementById('tabla-body');
                 
                 if(!data.semana_activa) {
-                    tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-red-500 font-bold bg-red-50 border border-red-200"><i class="fa-solid fa-triangle-exclamation text-2xl mb-2 block"></i>RRHH aún no ha aperturado la semana en el sistema web.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-red-600 font-bold bg-red-50"><i class="fa-solid fa-lock text-2xl mb-2 block"></i>Semana cerrada. Espere apertura de RRHH.</td></tr>';
                     return;
                 }
                 
                 if(data.empleados.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-gray-500 bg-gray-50">No tiene personal adscrito a su Gerencia.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-gray-500 bg-gray-50">Plantilla vacía o sin personal Activo en esta Unidad.</td></tr>';
                     return;
                 }
 
-                semanaData = { start: data.fecha_inicio, end: data.fecha_fin, locked: data.bloqueado_por_envio };
+                semanaData = { start: data.fecha_inicio, end: data.fecha_fin, locked: data.bloqueado_por_envio, ausentismos: data.ausentismos_fijos };
                 
-                document.getElementById('unidad-rango-fechas').innerHTML = `<i class="fa-regular fa-calendar mr-2"></i>Semana Activa: <b>${data.fecha_inicio}</b> al <b>${data.fecha_fin}</b>`;
+                document.getElementById('unidad-rango-fechas').innerHTML = `<i class="fa-regular fa-calendar text-blue-600 mr-2"></i><b>${data.fecha_inicio}</b> al <b>${data.fecha_fin}</b>`;
                 
                 const fechas = obtenerArregloFechas(data.fecha_inicio, data.fecha_fin);
                 actualizarCabeceraTabla(fechas);
@@ -304,11 +326,12 @@
 
                 data.empleados.forEach(emp => {
                     const tr = document.createElement('tr');
-                    tr.className = "hover:bg-blue-50 transition";
+                    tr.className = "hover:bg-blue-50 transition border-b border-gray-100";
                     
                     const tdNombre = document.createElement('td');
-                    tdNombre.className = "px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-800 sticky left-0 bg-white border-r border-gray-200";
-                    tdNombre.innerHTML = `<div>${emp.nombre_completo}</div><div class="text-xs font-normal text-gray-500">ID: ${emp.id_empleado}</div>`;
+                    tdNombre.className = "px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-800 sticky left-0 bg-white border-r border-gray-200 group-hover:bg-blue-50";
+                    tdNombre.innerHTML = `<div class="truncate w-48" title="${emp.nombres_apellidos}">${emp.nombres_apellidos}</div>
+                                          <div class="text-[11px] font-medium text-blue-600 mt-0.5"><span class="bg-blue-50 border border-blue-200 px-1 rounded mr-1">P00</span>${emp.p00} <span class="text-gray-400 ml-1">V-${emp.cedula}</span></div>`;
                     tr.appendChild(tdNombre);
                     
                     fechas.forEach(f => {
@@ -320,26 +343,35 @@
                         
                         if(estatusActual !== "") diasLlenos++;
                         
-                        const esFijoRRHH = (estatusActual === "Vacaciones" || estatusActual === "Reposo") && semanaData.locked;
+                        const bloqueoAusentismo = semanaData.ausentismos.some(a => a.p00 === emp.p00 && f >= a.fecha_inicio && f <= a.fecha_fin);
 
                         const select = document.createElement('select');
-                        select.className = "block w-full text-[11px] md:text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-blue-500 p-1 bg-gray-50 outline-none";
-                        if(semanaData.locked || esFijoRRHH) select.disabled = true;
+                        select.className = "block w-full text-[11px] md:text-xs rounded border border-gray-300 focus:border-blue-500 focus:ring-blue-500 p-1.5 bg-gray-50 outline-none transition";
+                        
+                        if(semanaData.locked || bloqueoAusentismo) {
+                            select.disabled = true;
+                            select.classList.add("cursor-not-allowed", "opacity-80");
+                        }
                         
                         ESTATUS_PERMITIDOS.forEach(est => {
                             const opt = document.createElement('option');
                             opt.value = est;
-                            opt.innerText = est === "" ? "-- Seleccione --" : est;
-                            if(est === estatusActual) opt.selected = true;
+                            opt.innerText = est === "" ? "Pendiente" : est;
+                            
+                            if(bloqueoAusentismo && estatusActual === "") {
+                                if(est === "Vacaciones" || est === "Reposo") opt.selected = true; // Aproximación visual
+                            } else {
+                                if(est === estatusActual) opt.selected = true;
+                            }
+                            
                             select.appendChild(opt);
                         });
                         
-                        // Color coding para visualización rápida
-                        if(estatusActual === "Falta Injustificada") select.classList.add("bg-red-100", "text-red-800", "border-red-300", "font-bold");
-                        if(estatusActual === "Asistencia Normal") select.classList.add("bg-green-50", "text-green-800", "border-green-300");
-                        if(estatusActual === "Reposo" || estatusActual === "Vacaciones") select.classList.add("bg-purple-100", "text-purple-800", "border-purple-300", "font-bold");
+                        if(select.value === "Falta Injustificada") select.classList.add("bg-red-50", "text-red-700", "border-red-300", "font-bold");
+                        if(select.value === "Asistencia Normal") select.classList.add("bg-green-50", "text-green-700", "border-green-300");
+                        if(["Reposo", "Vacaciones", "Permiso otorgado"].includes(select.value)) select.classList.add("bg-purple-50", "text-purple-700", "border-purple-300", "font-bold");
 
-                        select.onchange = (e) => registrarDiaVuelo(emp.id_empleado, f, e.target.value, select);
+                        select.onchange = (e) => registrarDiaVuelo(emp.p00, f, e.target.value, select);
 
                         td.appendChild(select);
                         tr.appendChild(td);
@@ -353,30 +385,28 @@
                 const btnEnvio = document.getElementById('btn-enviar-rrhh');
                 const msgBox = document.getElementById('msg-envio');
                 
-                if(semanaData.locked) {
-                    btnEnvio.innerHTML = '<i class="fa-solid fa-lock mr-2"></i> Reporte Entregado a RRHH';
+                if(semanaData.locked && currentRole !== "Reportador") {
+                    btnEnvio.innerHTML = '<i class="fa-solid fa-certificate mr-2"></i> Reporte Certificado';
                     btnEnvio.className = "w-full md:w-auto bg-green-600 cursor-not-allowed text-white px-6 py-3 rounded-lg font-bold shadow";
-                    msgBox.innerHTML = `<span class="text-green-600"><i class="fa-solid fa-check-circle mr-1"></i> Usted completó su gestión.</span>`;
+                    msgBox.innerHTML = `<span class="text-green-700 bg-green-50 px-3 py-1.5 rounded-lg border border-green-200"><i class="fa-solid fa-check-double mr-1"></i> Entregado a Nómina</span>`;
                     msgBox.classList.remove('hidden');
-                } else {
+                } else if(!semanaData.locked && currentRole !== "Reportador") {
                     msgBox.classList.add('hidden');
                 }
 
             } catch (error) {
-                console.error(error);
-                document.getElementById('tabla-body').innerHTML = '<tr><td colspan="8" class="text-center text-red-500 p-4">Error de conexión cargando los datos.</td></tr>';
+                document.getElementById('tabla-body').innerHTML = '<tr><td colspan="8" class="text-center text-red-500 p-4 font-bold">Error conectando con el ERP.</td></tr>';
             }
         }
 
-        // --- GUARDADO AUTOMÁTICO DE CELDAS ---
-        async function registrarDiaVuelo(id_emp, fecha, estatus, selectElement) {
-            selectElement.classList.add("opacity-50");
+        async function registrarDiaVuelo(p00, fecha, estatus, selectElement) {
+            selectElement.classList.add("opacity-50", "animate-pulse");
             
             let motivo = "";
             if(estatus === "Falta Injustificada") {
-                motivo = prompt("Obligatorio: Indique el motivo de la Falta Injustificada:");
+                motivo = prompt("AUDITORÍA: Indique el motivo legal de la Falta Injustificada:");
                 if(!motivo || motivo.trim() === "") {
-                    alert("Debe ingresar un motivo para que la Contraloría apruebe el registro. Acción revertida.");
+                    alert("Motivo obligatorio cancelado. Revirtiendo selección.");
                     cargarDatosUnidad(); 
                     return;
                 }
@@ -386,93 +416,99 @@
                 const res = await fetch(`${API_BASE}/api/guardar-dia`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        id_empleado: id_emp,
-                        fecha: fecha,
-                        estatus: estatus,
-                        motivo: motivo
-                    })
+                    body: JSON.stringify({ p00: p00, fecha: fecha, estatus: estatus, motivo: motivo })
                 });
                 
                 if(!res.ok) {
                     const err = await res.json();
-                    alert("Validación de Servidor: " + err.detail);
+                    alert("Rechazado: " + err.detail);
                 }
                 cargarDatosUnidad(); 
             } catch(e) {
-                alert("Error de red. Verifique su conexión.");
+                alert("Error de red guardando el registro.");
+                cargarDatosUnidad();
             }
         }
 
-        // --- ENVIAR REPORTE A RRHH ---
         async function enviarReporteRRHH() {
-            if(!confirm("¿Está completamente seguro de enviar el reporte?\n\nAl confirmar, el sistema de nómina congelará la data de su Gerencia y usted ya NO podrá realizar modificaciones.")) return;
+            if(!confirm("CERTIFICACIÓN LEGAL\n\nAl confirmar, la matriz de asistencia será bloqueada y enviada a Recursos Humanos para el cálculo de nómina. ¿Continuar?")) return;
             
             const btn = document.getElementById('btn-enviar-rrhh');
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Sellando Envío...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Firmando...';
             btn.disabled = true;
 
             try {
                 const res = await fetch(`${API_BASE}/api/enviar-a-rrhh`, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ unidad_nombre: currentUser })
+                    body: JSON.stringify({ unidad_nombre: currentUser, rol_usuario: currentRole })
                 });
                 const data = await res.json();
-                
                 const msgBox = document.getElementById('msg-envio');
                 msgBox.classList.remove('hidden');
                 
                 if(res.ok) {
-                    msgBox.innerHTML = `<span class="text-green-600"><i class="fa-solid fa-check-circle mr-1"></i> ${data.mensaje}</span>`;
+                    msgBox.innerHTML = `<span class="text-green-700 bg-green-50 px-3 py-1.5 rounded-lg border border-green-200"><i class="fa-solid fa-check-double mr-1"></i> ${data.mensaje}</span>`;
                     cargarDatosUnidad(); 
                 } else {
-                    msgBox.innerHTML = `<span class="text-red-600 bg-red-50 px-3 py-1 rounded"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ${data.detail}</span>`;
-                    btn.innerHTML = '<i class="fa-solid fa-paper-plane mr-2"></i> Enviar Reporte Definitivo a RRHH';
+                    msgBox.innerHTML = `<span class="text-red-700 bg-red-50 px-3 py-1.5 rounded-lg border border-red-200"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ${data.detail}</span>`;
+                    btn.innerHTML = '<i class="fa-solid fa-lock mr-2"></i> Certificar y Enviar a RRHH';
                     btn.disabled = false;
                 }
             } catch (e) {
-                alert("Falla de red en la comunicación con la Base de Datos Central.");
+                alert("Falla de comunicación con el servidor central.");
                 btn.disabled = false;
             }
         }
 
-        // --- LÓGICA DE RECURSOS HUMANOS ---
-        async function importarSemanaMaster() {
-            const fileInput = document.getElementById('file-master');
-            if(!fileInput.files[0]) return alert("Seleccione el archivo Maestro Encriptado.");
+        function toggleUnidadDestino() {
+            const select = document.getElementById('mov_tipo').value;
+            const div = document.getElementById('div_destino');
+            if(select === 'Transferencia') {
+                div.classList.remove('hidden');
+                document.getElementById('mov_destino').required = true;
+            } else {
+                div.classList.add('hidden');
+                document.getElementById('mov_destino').required = false;
+            }
+        }
+
+        async function ejecutarMovimiento(e) {
+            e.preventDefault();
+            const p00 = document.getElementById('mov_p00').value.toUpperCase();
+            const tipo = document.getElementById('mov_tipo').value;
+            const destino = document.getElementById('mov_destino').value;
+            const btn = document.getElementById('btn-movimiento');
             
-            const formData = new FormData();
-            formData.append("file", fileInput.files[0]);
-
-            const btn = fileInput.nextElementSibling;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i> Subiendo y Desencriptando...'; 
-            btn.disabled = true;
-
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; btn.disabled = true;
+            
             try {
-                const res = await fetch(`${API_BASE}/api/importar-semana`, {
+                const res = await fetch(`${API_BASE}/api/rrhh/movimiento-personal`, {
                     method: 'POST',
-                    body: formData
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        p00: p00, tipo_movimiento: tipo, unidad_destino: destino, registrado_por: currentUser
+                    })
                 });
                 const data = await res.json();
                 if(res.ok) {
-                    alert("SISTEMA HABILITADO CORRECTAMENTE\n\n" + data.mensaje);
-                    fileInput.value = "";
-                    cargarMonitoreoRRHH(); 
+                    alert("AUDITORÍA RRHH:\n" + data.mensaje);
+                    document.getElementById('form-movimientos').reset();
+                    toggleUnidadDestino();
+                    cargarMonitoreoRRHH(); // Refrescar globales
                 } else {
-                    alert("Error Operativo: " + data.detail);
+                    alert("Error: " + data.detail);
                 }
             } catch(e) {
-                alert("Error crítico subiendo el archivo al servidor.");
+                alert("Error ejecutando el movimiento.");
             }
-            btn.innerHTML = "Subir y Habilitar Sistema"; 
-            btn.disabled = false;
+            btn.innerHTML = 'Ejecutar Movimiento'; btn.disabled = false;
         }
 
         async function cargarMonitoreoRRHH() {
             const tbody = document.getElementById('tabla-monitoreo');
             const badge = document.getElementById('rrhh-badge-semana');
-            tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-500 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Consultando en vivo con PostgreSQL...</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-500 text-sm"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Sincronizando...</td></tr>';
             
             try {
                 const res = await fetch(`${API_BASE}/api/rrhh/monitoreo-entregas`);
@@ -482,43 +518,50 @@
                     badge.innerText = "SISTEMA CERRADO";
                     badge.classList.replace("bg-gray-100", "bg-red-100");
                     badge.classList.replace("text-gray-800", "text-red-800");
-                    tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-red-500 text-sm font-bold bg-red-50">No hay ninguna semana habilitada para recepción.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-red-600 text-sm font-bold bg-red-50">Configuración Pendiente en BD.</td></tr>';
                     return;
                 }
                 
-                badge.innerText = `Semana en Curso: ${data.fecha_inicio} al ${data.fecha_fin}`;
+                badge.innerText = `Semana Activa: ${data.fecha_inicio} al ${data.fecha_fin}`;
                 badge.classList.replace("bg-gray-100", "bg-green-100");
                 badge.classList.replace("bg-red-100", "bg-green-100");
                 badge.classList.replace("text-gray-800", "text-green-800");
                 badge.classList.replace("text-red-800", "text-green-800");
                 
                 if(data.entregas.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-gray-500 text-sm">Las Gerencias aún no han cargado su personal base.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-gray-500 text-sm">No hay estructura organizativa cargada.</td></tr>';
                     return;
                 }
                 
                 tbody.innerHTML = '';
+                let lastGG = "";
+                
                 data.entregas.forEach(ent => {
-                    const tr = document.createElement('tr');
-                    tr.className = "hover:bg-gray-50 transition";
-                    
-                    let estatusHtml = "";
-                    if(ent.estatus_entrega === "Enviado a RRHH") {
-                        estatusHtml = `<span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold border border-green-200"><i class="fa-solid fa-check mr-1"></i>Entregado</span>`;
-                    } else {
-                        estatusHtml = `<span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-bold border border-yellow-200"><i class="fa-regular fa-clock mr-1"></i>En Proceso</span>`;
+                    if(ent.gerencia_general !== lastGG) {
+                        const trGG = document.createElement('tr');
+                        trGG.className = "bg-gray-100";
+                        trGG.innerHTML = `<td colspan="4" class="px-4 py-2 text-xs font-bold text-gray-600 uppercase tracking-wider border-y border-gray-300"><i class="fa-solid fa-building mr-2"></i>${ent.gerencia_general}</td>`;
+                        tbody.appendChild(trGG);
+                        lastGG = ent.gerencia_general;
                     }
+
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-blue-50 transition border-b border-gray-100";
+                    
+                    let estatusHtml = ent.estatus_entrega === "Enviado a RRHH" 
+                        ? `<span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-[10px] font-bold border border-green-200 uppercase tracking-wide"><i class="fa-solid fa-check mr-1"></i>Cerrado</span>`
+                        : `<span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-[10px] font-bold border border-yellow-200 uppercase tracking-wide"><i class="fa-regular fa-clock mr-1"></i>Pendiente</span>`;
                     
                     tr.innerHTML = `
-                        <td class="px-4 py-3 text-sm font-bold text-gray-700">${ent.unidad}</td>
-                        <td class="px-4 py-3 text-sm text-center font-medium text-gray-600 bg-gray-50 border-l border-r border-gray-100">${ent.total_empleados}</td>
+                        <td class="px-4 py-3 text-sm font-bold text-gray-700 pl-8">${ent.unidad}</td>
+                        <td class="px-4 py-3 text-sm text-center font-bold text-blue-700 bg-gray-50 border-x border-gray-100">${ent.total_empleados}</td>
                         <td class="px-4 py-3 text-center">${estatusHtml}</td>
-                        <td class="px-4 py-3 text-xs text-center text-gray-500 font-mono">${ent.fecha_envio || '-'}</td>
+                        <td class="px-4 py-3 text-[11px] text-center text-gray-500 font-mono">${ent.fecha_envio || '-'}</td>
                     `;
                     tbody.appendChild(tr);
                 });
             } catch (e) {
-                tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-6 text-center text-red-500 text-sm font-bold"><i class="fa-solid fa-triangle-exclamation mr-2"></i>Error de red consultando la Base de Datos.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-red-600 text-sm font-bold bg-red-50">Error consultando ERP.</td></tr>';
             }
         }
 
@@ -527,17 +570,14 @@
                 const res = await fetch(`${API_BASE}/api/rrhh/descargar-consolidado`);
                 if(!res.ok) {
                     const err = await res.json();
-                    return alert("Validación de Servidor: " + err.detail);
+                    return alert("Rechazo ERP: " + err.detail);
                 }
                 
-                let filename = "Nomina_Consolidada.xlsx";
+                let filename = "Nomina_Asistencia.xlsx";
                 const disposition = res.headers.get('Content-Disposition');
                 if (disposition && disposition.indexOf('filename=') !== -1) {
-                    const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
-                    const matches = filenameRegex.exec(disposition);
-                    if (matches != null && matches[1]) { 
-                        filename = matches[1].replace(/['"]/g, '');
-                    }
+                    const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+                    if (matches != null && matches[1]) filename = matches[1].replace(/['"]/g, '');
                 }
                 
                 const blob = await res.blob();
@@ -549,13 +589,11 @@
                 document.body.appendChild(a);
                 a.click();
                 window.URL.revokeObjectURL(url);
-                
             } catch(e) {
-                alert("Error de red al intentar procesar el archivo Excel.");
+                alert("Falla de descarga. Verifique conectividad.");
             }
         }
 
-        // --- UTILIDADES GLOBALES ---
         function obtenerArregloFechas(inicio, fin) {
             let start = new Date(inicio + "T12:00:00");
             let end = new Date(fin + "T12:00:00");
@@ -567,14 +605,13 @@
         }
 
         function actualizarCabeceraTabla(fechas) {
-            const thead = document.querySelector('#tabla-asistencia thead tr');
-            const ths = thead.querySelectorAll('th');
-            const diasSemana = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+            const ths = document.querySelector('#tabla-asistencia thead tr').querySelectorAll('th');
+            const diasSemana = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
             
             fechas.forEach((f, index) => {
                 let dt = new Date(f + "T12:00:00");
                 if(ths[index + 1]) {
-                    ths[index + 1].innerHTML = `<div class="text-gray-400 font-normal text-[10px] uppercase tracking-wider">${diasSemana[dt.getDay()]}</div><div class="font-bold text-gray-700 text-sm">${dt.getDate()}/${dt.getMonth()+1}</div>`;
+                    ths[index + 1].innerHTML = `<div class="text-blue-600 font-bold text-[10px] uppercase tracking-wider mb-0.5">${diasSemana[dt.getDay()]}</div><div class="font-bold text-gray-700 text-sm">${dt.getDate()}/${dt.getMonth()+1}</div>`;
                 }
             });
         }
@@ -592,14 +629,16 @@
             
             if(porcentaje >= 100 && !semanaData.locked) {
                 bar.classList.replace('bg-green-500', 'bg-blue-600');
-                txt.classList.add('text-blue-600');
-                btn.disabled = false;
-                btn.classList.replace('bg-gray-400', 'bg-blue-600');
-                btn.classList.replace('cursor-not-allowed', 'hover:bg-blue-700');
+                txt.classList.add('text-blue-700');
+                if(btn) {
+                    btn.disabled = false;
+                    btn.classList.replace('bg-gray-400', 'bg-blue-600');
+                    btn.classList.replace('cursor-not-allowed', 'hover:bg-blue-700');
+                }
             } else {
                 bar.classList.replace('bg-blue-600', 'bg-green-500');
-                txt.classList.remove('text-blue-600');
-                if(!semanaData.locked) {
+                txt.classList.remove('text-blue-700');
+                if(btn && !semanaData.locked) {
                     btn.disabled = true;
                     btn.classList.replace('bg-blue-600', 'bg-gray-400');
                     btn.classList.add('cursor-not-allowed');
