@@ -103,7 +103,7 @@
                 </div>
             </div>
 
-            <!-- NUEVO: BARRA DE HERRAMIENTAS (FILTROS Y PDF) -->
+            <!-- BARRA DE HERRAMIENTAS (FILTROS Y PDF) -->
             <div id="barra-herramientas" class="bg-white p-4 rounded-xl shadow-md border border-gray-200 flex flex-col md:flex-row gap-4 items-center justify-between hidden">
                 <div class="flex flex-col md:flex-row gap-4 w-full md:w-auto items-center">
                     <div class="relative w-full md:w-64">
@@ -168,7 +168,7 @@
     <div id="view-rrhh" class="view-hidden flex-grow p-4 md:p-6">
         <div class="max-w-7xl mx-auto space-y-6">
             <div class="bg-white rounded-xl shadow-md p-6 border-l-4 border-purple-600 flex justify-between items-center">
-                <div><h1 class="text-2xl font-bold text-gray-800">Módulo Administrativo ERP</h1><p class="text-gray-500 mt-1">Gestión Centralizada de Recursos Humanos.</p></div>
+                <div><h1 class="text-2xl font-bold text-gray-800">Módulo Administrativo ERP</h1><p class="text-gray-500 mt-1">Centro de Control y Auditoría Global.</p></div>
                 <div id="rrhh-badge-semana" class="bg-gray-100 text-gray-800 px-4 py-2 rounded-lg font-bold shadow-inner border border-gray-200">Consultando...</div>
             </div>
             
@@ -205,21 +205,22 @@
                     </div>
                 </div>
 
+                <!-- PANEL DE AUDITORÍA GLOBAL -->
                 <div class="col-span-1 lg:col-span-2 space-y-6 flex flex-col">
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100 flex-grow flex flex-col">
                         <div class="flex items-center justify-between mb-4 border-b pb-2">
-                            <h2 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-satellite-dish text-purple-600 mr-2"></i>Auditoría de Entregas Globales</h2>
-                            <button onclick="cargarMonitoreoRRHH()" class="text-blue-700 bg-blue-50 px-3 py-1 rounded-lg text-xs font-bold border border-blue-200">Actualizar</button>
+                            <h2 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-chart-pie text-purple-600 mr-2"></i>Auditoría de Avance Estructural</h2>
+                            <button onclick="cargarMonitoreoRRHH()" class="text-blue-700 bg-blue-50 px-3 py-1 rounded-lg text-xs font-bold border border-blue-200 hover:bg-blue-100 transition"><i class="fa-solid fa-rotate-right mr-1"></i>Actualizar</button>
                         </div>
-                        <div class="overflow-y-auto flex-grow max-h-96 mb-4 border border-gray-200 rounded shadow-inner bg-gray-50">
+                        <div class="overflow-y-auto flex-grow max-h-[500px] mb-4 border border-gray-200 rounded shadow-inner bg-gray-50">
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-200 sticky top-0 shadow-sm">
-                                    <tr><th class="px-4 py-2 text-left text-xs font-bold text-gray-700 uppercase">Jefatura Certificadora</th><th class="px-4 py-2 text-center text-xs font-bold text-gray-700 uppercase">Plantilla</th><th class="px-4 py-2 text-center text-xs font-bold text-gray-700 uppercase">Estatus</th></tr>
+                                    <tr><th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Unidad / Gerencia</th><th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Avance del Personal</th><th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Estatus</th></tr>
                                 </thead>
                                 <tbody id="tabla-monitoreo" class="bg-white divide-y divide-gray-100"></tbody>
                             </table>
                         </div>
-                        <button onclick="descargarConsolidadoNomina()" class="w-full bg-purple-600 text-white py-3 rounded-lg font-bold hover:bg-purple-700 transition shadow"><i class="fa-solid fa-file-excel mr-2"></i> Exportar Nómina Consolidada</button>
+                        <button onclick="descargarConsolidadoNomina()" class="w-full bg-purple-600 text-white py-3.5 rounded-lg font-bold hover:bg-purple-700 transition shadow flex justify-center items-center"><i class="fa-solid fa-file-excel mr-2 text-xl"></i> Exportar Nómina Consolidada</button>
                     </div>
                 </div>
             </div>
@@ -250,7 +251,6 @@
         let currentUser = null; let currentRole = null; let semanaData = null; let estructuraOrganizativa = {}; 
         let mostrandoOtros = false;
         
-        // Variables globales para el PDF y Búsqueda Dinámica
         let empleadosGlobal = [];
         let fechasGlobal = [];
         
@@ -329,9 +329,6 @@
             return html;
         }
 
-        // ==========================================
-        // FILTROS Y PDF (NUEVO MOTOR)
-        // ==========================================
         function aplicarFiltrosUI() {
             const texto = document.getElementById('filtro-texto').value.toLowerCase();
             const estado = document.getElementById('filtro-estado').value;
@@ -340,19 +337,15 @@
             filas.forEach(fila => {
                 const nombre = fila.getAttribute('data-nombre');
                 const p00 = fila.getAttribute('data-p00');
-                const faltante = fila.getAttribute('data-faltante'); // "si" o "no"
+                const faltante = fila.getAttribute('data-faltante');
 
                 const cumpleTexto = nombre.includes(texto) || p00.includes(texto);
-                
                 let cumpleEstado = true;
                 if (estado === 'faltantes' && faltante === 'no') cumpleEstado = false;
                 if (estado === 'completados' && faltante === 'si') cumpleEstado = false;
 
-                if (cumpleTexto && cumpleEstado) {
-                    fila.style.display = '';
-                } else {
-                    fila.style.display = 'none';
-                }
+                if (cumpleTexto && cumpleEstado) fila.style.display = '';
+                else fila.style.display = 'none';
             });
         }
 
@@ -373,12 +366,7 @@
 
             let bodyData = [];
             empleadosGlobal.forEach(emp => {
-                let fila = [
-                    emp.p00,
-                    emp.nombres_apellidos,
-                    emp.gerencia
-                ];
-                
+                let fila = [ emp.p00, emp.nombres_apellidos, emp.gerencia ];
                 fechasGlobal.forEach(f => {
                     const est = (emp.asistencia[f]) ? emp.asistencia[f].estatus : "";
                     const aus = semanaData.ausentismos.find(a => a.p00 === emp.p00 && f >= a.fecha_inicio && f <= a.fecha_fin);
@@ -392,7 +380,6 @@
                 bodyData.push(fila);
             });
 
-            // Preparar cabeceras exactas
             let headCols = ['P00', 'Nombres y Apellidos', 'Gerencia General'];
             fechasGlobal.forEach(f => {
                 let dt = new Date(f + "T12:00:00");
@@ -400,19 +387,12 @@
             });
 
             doc.autoTable({
-                startY: 90,
-                head: [headCols],
-                body: bodyData,
+                startY: 90, head: [headCols], body: bodyData,
                 styles: { fontSize: 7, cellPadding: 2 },
                 headStyles: { fillColor: [30, 58, 138], textColor: 255 },
                 alternateRowStyles: { fillColor: [245, 247, 250] },
-                columnStyles: {
-                    0: { cellWidth: 40, fontStyle: 'bold' },
-                    1: { cellWidth: 120 },
-                    2: { cellWidth: 150 }
-                }
+                columnStyles: { 0: { cellWidth: 40, fontStyle: 'bold' }, 1: { cellWidth: 120 }, 2: { cellWidth: 150 } }
             });
-
             doc.save(`Asistencia_${currentUser}_${semanaData.start}.pdf`);
         }
 
@@ -434,7 +414,6 @@
                 let curr = new Date(data.fecha_inicio + "T12:00:00"); let fin = new Date(data.fecha_fin + "T12:00:00");
                 while(curr <= fin) { fechas7.push(curr.toISOString().split('T')[0]); curr.setDate(curr.getDate() + 1); }
                 
-                // Guardar global para el PDF
                 empleadosGlobal = data.empleados;
                 fechasGlobal = fechas7.slice(0, 7);
 
@@ -496,7 +475,6 @@
                         td.appendChild(select); tr.appendChild(td);
                     });
 
-                    // Atributos ocultos para el buscador y filtros dinámicos
                     tr.setAttribute('data-nombre', emp.nombres_apellidos.toLowerCase());
                     tr.setAttribute('data-p00', emp.p00);
                     tr.setAttribute('data-faltante', empLlenos < 7 ? 'si' : 'no');
@@ -522,7 +500,7 @@
 
                 document.getElementById('kpi-mios-total').innerText = miosTotal;
                 document.getElementById('kpi-mios-listos').innerText = Math.floor(miosLlenos/7);
-                document.getElementById('kpi-mios-faltan').innerText = Math.ceil(miosFaltan/7); // Simplificamos a personas
+                document.getElementById('kpi-mios-faltan').innerText = Math.ceil(miosFaltan/7);
                 document.getElementById('kpi-mios-bar').style.width = (miosTotal > 0 ? (miosLlenos / (miosTotal*7))*100 : 0) + '%';
                 
                 document.getElementById('kpi-otros-total').innerText = otrosTotal;
@@ -551,15 +529,11 @@
                     }
                 }
 
-                // Restaurar filtros si se guardó mientras el filtro estaba activo
                 aplicarFiltrosUI();
 
             } catch (error) { document.getElementById('tabla-body-mios').innerHTML = '<tr><td colspan="8" class="text-center text-red-500 p-4">Error de conexión.</td></tr>'; }
         }
 
-        // ==========================================
-        // GUARDADO DE ASISTENCIA Y MODAL
-        // ==========================================
         let tempSelectForReposo = null;
 
         async function registrarDiaVuelo(p00, fecha, estatus, selectElement) {
@@ -598,13 +572,11 @@
             e.preventDefault();
             const btn = document.getElementById('btn-save-reposo');
             btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...'; btn.disabled = true;
-            
             const payload = {
                 username: currentUser, p00: document.getElementById('rep_p00').value,
                 fecha_inicio: document.getElementById('rep_inicio').value, fecha_fin: document.getElementById('rep_fin').value,
                 estatus: "Reposo", motivo: document.getElementById('rep_motivo').value
             };
-
             try {
                 const res = await fetch(`${API_BASE}/api/guardar-rango`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
                 if(!res.ok) { const err = await res.json(); alert(err.detail); }
@@ -624,9 +596,6 @@
             } catch (e) { alert("Error."); btn.disabled = false; }
         }
 
-        // ==========================================
-        // AGREGAR PERSONAL LOCAL Y RRHH (SE MANTIENE IGUAL)
-        // ==========================================
         async function agregarEmpleadoManual(e) {
             e.preventDefault();
             const btn = document.getElementById('btn-add-manual'); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>'; btn.disabled = true;
@@ -677,7 +646,7 @@
                     for(let ua in estructuraOrganizativa) { selectUA.innerHTML += `<option value="${ua}">${ua}</option>`; }
                     actualizarDropdownGerencias();
                 }
-            } catch(e) { console.log("Error cargando estructura", e); }
+            } catch(e) { console.log("Error cargando estructura"); }
         }
 
         function actualizarDropdownGerencias() {
@@ -738,6 +707,9 @@
             } catch(e) { alert("Error."); }
         }
 
+        // ==========================================
+        // MONITOREO RRHH (NUEVO DISEÑO CON BARRAS)
+        // ==========================================
         async function cargarMonitoreoRRHH() {
             const tbody = document.getElementById('tabla-monitoreo'); const badge = document.getElementById('rrhh-badge-semana');
             try {
@@ -746,16 +718,37 @@
                 if(!data.semana_activa) { badge.innerText = "SIN SEMANA"; tbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-red-500">Semana inactiva.</td></tr>'; return; }
                 
                 badge.innerText = `${data.fecha_inicio} al ${data.fecha_fin}`;
-                tbody.innerHTML = ''; let lastUA = "";
+                tbody.innerHTML = '';
+                
                 data.entregas.forEach(ent => {
-                    if(ent.unidad_administrativa !== lastUA) {
-                        tbody.innerHTML += `<tr class="bg-gray-100"><td colspan="3" class="px-4 py-2 text-xs font-bold text-gray-600 uppercase"><i class="fa-solid fa-sitemap mr-2"></i>${ent.unidad_administrativa}</td></tr>`;
-                        lastUA = ent.unidad_administrativa;
-                    }
-                    let estHtml = ent.estatus_entrega === "Enviado a RRHH" ? `<span class="bg-green-100 text-green-800 px-2 py-1 rounded text-[10px] font-bold">Cerrado</span>` : `<span class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-[10px] font-bold">Pendiente</span>`;
-                    tbody.innerHTML += `<tr><td class="px-4 py-2 text-sm font-bold pl-8">${ent.unidad}</td><td class="px-4 py-2 text-center text-sm font-bold text-blue-700">${ent.total_empleados}</td><td class="px-4 py-2 text-center">${estHtml}</td></tr>`;
+                    let completados = parseInt(ent.completados) || 0;
+                    let total = parseInt(ent.total_empleados) || 0;
+                    let porcentaje = total > 0 ? Math.round((completados / total) * 100) : 0;
+                    
+                    let estHtml = porcentaje === 100 && total > 0 
+                        ? `<span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-[10px] font-bold"><i class="fa-solid fa-check mr-1"></i>COMPLETADO</span>` 
+                        : `<span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-[10px] font-bold"><i class="fa-solid fa-clock mr-1"></i>PENDIENTE</span>`;
+                    
+                    let barraProgreso = `
+                        <div class="flex items-center justify-center space-x-3">
+                            <span class="text-xs font-bold text-gray-600 w-10 text-right">${completados}/${total}</span>
+                            <div class="w-32 bg-gray-200 rounded-full h-2.5 shadow-inner">
+                                <div class="${porcentaje === 100 ? 'bg-green-500' : 'bg-blue-500'} h-2.5 rounded-full transition-all duration-500" style="width: ${porcentaje}%"></div>
+                            </div>
+                            <span class="text-[10px] font-bold ${porcentaje === 100 ? 'text-green-600' : 'text-blue-600'} w-8 text-left">${porcentaje}%</span>
+                        </div>
+                    `;
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-blue-50 transition border-b border-gray-100">
+                            <td class="px-4 py-3 text-sm font-bold text-gray-700 pl-6"><i class="fa-solid fa-building text-gray-300 mr-2"></i>${ent.jurisdiccion}</td>
+                            <td class="px-4 py-3 text-center border-x border-gray-100">${barraProgreso}</td>
+                            <td class="px-4 py-3 text-center">${estHtml}</td>
+                        </tr>
+                    `;
                 });
-            } catch (e) { tbody.innerHTML = '<tr><td colspan="3" class="text-center text-red-500 p-4">Error ERP.</td></tr>'; }
+                if(data.entregas.length === 0) tbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-gray-500">No hay personal activo en la estructura.</td></tr>';
+            } catch (e) { tbody.innerHTML = '<tr><td colspan="3" class="text-center text-red-500 p-4">Error consultando ERP.</td></tr>'; }
         }
 
         async function descargarConsolidadoNomina() {
