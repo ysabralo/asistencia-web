@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title="Asistencia Movilnet ERP v5.2")
+app = FastAPI(title="Asistencia Movilnet ERP v5.3")
 
 app.add_middleware(
     CORSMiddleware,
@@ -469,7 +469,7 @@ def enviar_a_rrhh(req: EnvioRRHHRequest, db = Depends(get_db)):
     return {"success": True, "mensaje": "Reporte certificado y enviado a RRHH."}
 
 # ==========================================
-# 5. MONITOREO RRHH (AGRUPACIÓN DINÁMICA POR ESTRUCTURA)
+# 5. MONITOREO RRHH Y EXPORTACIÓN
 # ==========================================
 @app.get("/api/rrhh/monitoreo-entregas")
 def monitoreo_entregas(db = Depends(get_db)):
@@ -516,6 +516,40 @@ def monitoreo_entregas(db = Depends(get_db)):
         "entregas": resultados
     }
 
+def generar_excel_agrupado(df_detalle, nombre_archivo):
+    """ Función interna para generar el Excel con las dos pestañas (Detalle y Resumen a Pagar/Descontar) """
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        if not df_detalle.empty:
+            df_detalle['fecha'] = pd.to_datetime(df_detalle['fecha']).dt.strftime('%d/%m/%Y')
+            df_detalle.columns = ['Fecha', 'P00', 'Cédula', 'Nombres y Apellidos', 'Unidad Administrativa (VP)', 'Gerencia General', 'Estatus Asistencia', 'Motivo']
+            
+            # Pestaña 1: Detalle Completo
+            df_detalle.to_excel(writer, index=False, sheet_name="Detalle_Asistencia")
+            
+            # Categorías de Pago
+            pagar_list = ["Asistencia Normal", "Vacaciones", "Dia Descanso Legal", "Dia Libre Compensatorio"]
+            descontar_list = ["Teletrabajo", "Reposo", "Permiso otorgado", "Falta Injustificada"]
+            
+            df_resumen = df_detalle.copy()
+            df_resumen['Días a Pagar'] = df_resumen['Estatus Asistencia'].apply(lambda x: 1 if x in pagar_list else 0)
+            df_resumen['Días a Descontar'] = df_resumen['Estatus Asistencia'].apply(lambda x: 1 if x in descontar_list else 0)
+            
+            # Agrupar por empleado
+            df_resumen = df_resumen.groupby(['P00', 'Cédula', 'Nombres y Apellidos', 'Unidad Administrativa (VP)', 'Gerencia General'], as_index=False).agg({
+                'Días a Pagar': 'sum',
+                'Días a Descontar': 'sum'
+            })
+            
+            # Pestaña 2: Resumen Pre-Nómina
+            df_resumen.to_excel(writer, index=False, sheet_name="Resumen_Pago")
+        else:
+            pd.DataFrame(["No hay registros"]).to_excel(writer, index=False, sheet_name="Sin_Datos")
+            
+    output.seek(0)
+    headers = {'Content-Disposition': f'attachment; filename="{nombre_archivo}.xlsx"', 'Access-Control-Expose-Headers': 'Content-Disposition'}
+    return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
 @app.get("/api/rrhh/descargar-consolidado")
 def descargar_consolidado(db = Depends(get_db)):
     cursor = db.cursor()
@@ -530,22 +564,12 @@ def descargar_consolidado(db = Depends(get_db)):
     """, (config['semana_inicio'], config['semana_fin']))
     
     df_detalle = pd.DataFrame(cursor.fetchall())
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        if not df_detalle.empty:
-            df_detalle['fecha'] = pd.to_datetime(df_detalle['fecha']).dt.strftime('%d/%m/%Y')
-            df_detalle.columns = ['Fecha', 'P00', 'Cédula', 'Nombres y Apellidos', 'Unidad Administrativa (VP)', 'Gerencia General', 'Estatus Asistencia', 'Motivo']
-            df_detalle.to_excel(writer, index=False, sheet_name="Asistencia_Consolidada")
-        else:
-            pd.DataFrame(["No hay registros"]).to_excel(writer, index=False, sheet_name="Sin_Datos")
-            
-    output.seek(0)
-    headers = {'Content-Disposition': f'attachment; filename="Nomina_{config["semana_inicio"]}.xlsx"', 'Access-Control-Expose-Headers': 'Content-Disposition'}
-    return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    nombre_archivo = f"Nomina_Consolidada_{config['semana_inicio']}"
+    
+    return generar_excel_agrupado(df_detalle, nombre_archivo)
 
 @app.get("/api/rrhh/descargar-jurisdiccion/{jurisdiccion}")
 def descargar_jurisdiccion(jurisdiccion: str, db = Depends(get_db)):
-    """ Exportar Excel exclusivamente de una Jurisdicción """
     cursor = db.cursor()
     cursor.execute("SELECT semana_inicio, semana_fin FROM configuracion_sistema WHERE id = 1")
     config = cursor.fetchone()
@@ -566,21 +590,10 @@ def descargar_jurisdiccion(jurisdiccion: str, db = Depends(get_db)):
     cursor.execute(query, (config['semana_inicio'], config['semana_fin'], jurisdiccion))
     
     df_detalle = pd.DataFrame(cursor.fetchall())
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        if not df_detalle.empty:
-            df_detalle['fecha'] = pd.to_datetime(df_detalle['fecha']).dt.strftime('%d/%m/%Y')
-            df_detalle.columns = ['Fecha', 'P00', 'Cédula', 'Nombres y Apellidos', 'Unidad Administrativa (VP)', 'Gerencia General', 'Estatus Asistencia', 'Motivo']
-            df_detalle.to_excel(writer, index=False, sheet_name="Asistencia_Jurisdiccion")
-        else:
-            pd.DataFrame(["No hay registros"]).to_excel(writer, index=False, sheet_name="Sin_Datos")
-            
-    output.seek(0)
-    
-    # Limpiamos el nombre para que no genere errores en el nombre del archivo
     safe_name = "".join([c for c in jurisdiccion if c.isalpha() or c.isdigit() or c==' ']).rstrip()
-    headers = {'Content-Disposition': f'attachment; filename="Nomina_{safe_name}.xlsx"', 'Access-Control-Expose-Headers': 'Content-Disposition'}
-    return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    nombre_archivo = f"Nomina_{safe_name}"
+    
+    return generar_excel_agrupado(df_detalle, nombre_archivo)
 
 @app.get("/")
 @app.get("/index.html")
