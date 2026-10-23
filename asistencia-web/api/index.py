@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title="Asistencia Movilnet ERP v5.1")
+app = FastAPI(title="Asistencia Movilnet ERP v5.2")
 
 app.add_middleware(
     CORSMiddleware,
@@ -478,7 +478,6 @@ def monitoreo_entregas(db = Depends(get_db)):
     config = cursor.fetchone()
     if not config: return {"semana_activa": False, "entregas": []}
     
-    # Lógica Matemática: Cuenta P00s totales vs P00s que tienen 7 días llenos por cada Jurisdicción
     query = """
         WITH emp_dias AS (
             SELECT 
@@ -542,6 +541,45 @@ def descargar_consolidado(db = Depends(get_db)):
             
     output.seek(0)
     headers = {'Content-Disposition': f'attachment; filename="Nomina_{config["semana_inicio"]}.xlsx"', 'Access-Control-Expose-Headers': 'Content-Disposition'}
+    return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+@app.get("/api/rrhh/descargar-jurisdiccion/{jurisdiccion}")
+def descargar_jurisdiccion(jurisdiccion: str, db = Depends(get_db)):
+    """ Exportar Excel exclusivamente de una Jurisdicción """
+    cursor = db.cursor()
+    cursor.execute("SELECT semana_inicio, semana_fin FROM configuracion_sistema WHERE id = 1")
+    config = cursor.fetchone()
+    if not config: raise HTTPException(status_code=400, detail="No hay semana activa.")
+        
+    query = """
+        SELECT a.fecha, e.p00, e.cedula, e.nombres_apellidos, e.unidad_administrativa, e.gerencia_general, a.estatus, a.motivo 
+        FROM asistencia_diaria a INNER JOIN empleados_maestro e ON a.p00 = e.p00
+        WHERE a.fecha BETWEEN %s AND %s 
+        AND (
+            CASE 
+                WHEN e.unidad_administrativa = 'Presidencia' THEN e.gerencia_general
+                ELSE e.unidad_administrativa
+            END
+        ) = %s
+        ORDER BY e.unidad_administrativa ASC, e.gerencia_general ASC, e.p00 ASC, a.fecha ASC
+    """
+    cursor.execute(query, (config['semana_inicio'], config['semana_fin'], jurisdiccion))
+    
+    df_detalle = pd.DataFrame(cursor.fetchall())
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        if not df_detalle.empty:
+            df_detalle['fecha'] = pd.to_datetime(df_detalle['fecha']).dt.strftime('%d/%m/%Y')
+            df_detalle.columns = ['Fecha', 'P00', 'Cédula', 'Nombres y Apellidos', 'Unidad Administrativa (VP)', 'Gerencia General', 'Estatus Asistencia', 'Motivo']
+            df_detalle.to_excel(writer, index=False, sheet_name="Asistencia_Jurisdiccion")
+        else:
+            pd.DataFrame(["No hay registros"]).to_excel(writer, index=False, sheet_name="Sin_Datos")
+            
+    output.seek(0)
+    
+    # Limpiamos el nombre para que no genere errores en el nombre del archivo
+    safe_name = "".join([c for c in jurisdiccion if c.isalpha() or c.isdigit() or c==' ']).rstrip()
+    headers = {'Content-Disposition': f'attachment; filename="Nomina_{safe_name}.xlsx"', 'Access-Control-Expose-Headers': 'Content-Disposition'}
     return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
 @app.get("/")
