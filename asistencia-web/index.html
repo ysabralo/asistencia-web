@@ -204,7 +204,7 @@
                     </div>
                 </div>
 
-                <!-- PANEL DE AUDITORÍA GLOBAL -->
+                <!-- PANEL DE AUDITORÍA GLOBAL (ACTUALIZADO CON CANDADOS) -->
                 <div class="col-span-1 lg:col-span-2 space-y-6 flex flex-col">
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100 flex-grow flex flex-col">
                         <div class="flex items-center justify-between mb-4 border-b pb-2">
@@ -224,7 +224,9 @@
                                 <tbody id="tabla-monitoreo" class="bg-white divide-y divide-gray-100"></tbody>
                             </table>
                         </div>
-                        <button onclick="descargarConsolidadoNomina()" class="w-full bg-purple-600 text-white py-3.5 rounded-lg font-bold hover:bg-purple-700 transition shadow flex justify-center items-center"><i class="fa-solid fa-file-excel mr-2 text-xl"></i> Exportar Nómina Consolidada</button>
+                        <button id="btn-exportar-global" onclick="descargarConsolidadoNomina()" class="w-full bg-gray-400 cursor-not-allowed text-white py-3.5 rounded-lg font-bold transition shadow flex justify-center items-center" disabled>
+                            <i class="fa-solid fa-lock mr-2 text-xl"></i> Consolidado Bloqueado (Faltan Entregas)
+                        </button>
                     </div>
                 </div>
             </div>
@@ -630,7 +632,7 @@
         }
 
         async function desvincularEmpleado(p00, nombre) {
-            if(!confirm(`¿Está seguro que desea remover a ${nombre} (P00: ${p00}) de su plantilla local?\n\nEsto no lo eliminará de la empresa, solo lo quitará de su vista de edición.`)) return;
+            if(!confirm(`¿Remover a ${nombre} (P00: ${p00}) de su plantilla local?`)) return;
             try {
                 const res = await fetch(`${API_BASE}/api/unidad/remover-empleado/${currentUser}/${p00}`, { method: 'DELETE' });
                 if(res.ok) cargarDatosUnidad();
@@ -722,6 +724,12 @@
             } catch(e) { alert("Error."); }
         }
 
+        // ==========================================
+        // MONITOREO RRHH Y EXPORTACIÓN SEGURA
+        // ==========================================
+        let globalPorcentajeAcumulado = 0;
+        let globalTotalEmpleados = 0;
+
         async function cargarMonitoreoRRHH() {
             const tbody = document.getElementById('tabla-monitoreo'); const badge = document.getElementById('rrhh-badge-semana');
             try {
@@ -732,9 +740,15 @@
                 badge.innerText = `${data.fecha_inicio} al ${data.fecha_fin}`;
                 tbody.innerHTML = '';
                 
+                let sumCompletados = 0;
+                let sumTotales = 0;
+                
                 data.entregas.forEach(ent => {
                     let completados = parseInt(ent.completados) || 0;
                     let total = parseInt(ent.total_empleados) || 0;
+                    sumCompletados += completados;
+                    sumTotales += total;
+
                     let porcentaje = total > 0 ? Math.round((completados / total) * 100) : 0;
                     
                     let estHtml = porcentaje === 100 && total > 0 
@@ -751,7 +765,10 @@
                         </div>
                     `;
 
-                    let btnExcel = `<button onclick="descargarNominaJurisdiccion('${ent.jurisdiccion.replace(/'/g, "\\'")}')" class="text-green-600 bg-green-50 border border-green-200 hover:bg-green-600 hover:text-white px-2 py-1.5 rounded shadow-sm transition" title="Descargar Asistencia de ${ent.jurisdiccion}"><i class="fa-solid fa-file-excel"></i></button>`;
+                    // CANDADO DE DESCARGA INDIVIDUAL
+                    let btnExcel = porcentaje === 100 && total > 0
+                        ? `<button onclick="descargarNominaJurisdiccion('${ent.jurisdiccion.replace(/'/g, "\\'")}')" class="text-green-600 bg-green-50 border border-green-200 hover:bg-green-600 hover:text-white px-2 py-1.5 rounded shadow-sm transition" title="Descargar Asistencia de ${ent.jurisdiccion}"><i class="fa-solid fa-file-excel"></i></button>`
+                        : `<button disabled class="text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed px-2 py-1.5 rounded shadow-sm transition" title="Falta certificar asistencia para poder descargar"><i class="fa-solid fa-lock"></i></button>`;
 
                     tbody.innerHTML += `
                         <tr class="hover:bg-blue-50 transition border-b border-gray-100">
@@ -762,7 +779,25 @@
                         </tr>
                     `;
                 });
+                
                 if(data.entregas.length === 0) tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-gray-500">No hay personal activo en la estructura.</td></tr>';
+
+                // CANDADO DE DESCARGA GLOBAL
+                let globalPorcentaje = sumTotales > 0 ? Math.round((sumCompletados / sumTotales) * 100) : 0;
+                const btnGlobal = document.getElementById('btn-exportar-global');
+                
+                if (globalPorcentaje === 100 && sumTotales > 0) {
+                    btnGlobal.disabled = false;
+                    btnGlobal.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                    btnGlobal.classList.add('bg-purple-600', 'hover:bg-purple-700');
+                    btnGlobal.innerHTML = '<i class="fa-solid fa-file-excel mr-2 text-xl"></i> Exportar Nómina Consolidada';
+                } else {
+                    btnGlobal.disabled = true;
+                    btnGlobal.classList.remove('bg-purple-600', 'hover:bg-purple-700');
+                    btnGlobal.classList.add('bg-gray-400', 'cursor-not-allowed');
+                    btnGlobal.innerHTML = '<i class="fa-solid fa-lock mr-2 text-xl"></i> Consolidado Bloqueado (Faltan Entregas)';
+                }
+
             } catch (e) { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-red-500 p-4">Error consultando ERP.</td></tr>'; }
         }
 
