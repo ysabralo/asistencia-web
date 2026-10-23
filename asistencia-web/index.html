@@ -204,7 +204,7 @@
                     </div>
                 </div>
 
-                <!-- PANEL DE AUDITORÍA GLOBAL (ACTUALIZADO) -->
+                <!-- PANEL DE AUDITORÍA GLOBAL -->
                 <div class="col-span-1 lg:col-span-2 space-y-6 flex flex-col">
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100 flex-grow flex flex-col">
                         <div class="flex items-center justify-between mb-4 border-b pb-2">
@@ -434,9 +434,11 @@
                     tr.className = "hover:bg-blue-50 border-b border-gray-100 fila-empleado-dinamica";
                     
                     let candado = !emp.editable ? '<i class="fa-solid fa-lock text-gray-400 text-xs ml-2" title="Solo Lectura"></i>' : '';
+                    let btnRemover = emp.editable && !semanaData.locked ? `<button onclick="desvincularEmpleado('${emp.p00}', '${emp.nombres_apellidos}')" class="text-red-400 hover:text-red-600 ml-2" title="Remover de mi plantilla"><i class="fa-solid fa-times-circle"></i></button>` : '';
+                    
                     tr.innerHTML = `<td class="px-4 py-3 text-sm font-bold text-gray-800 bg-white border-r">
                         <div class="flex items-center justify-between"><div class="truncate w-44" title="${emp.nombres_apellidos}">${emp.nombres_apellidos}</div>${candado}</div>
-                        <div class="text-[10px] text-gray-500 mt-1 truncate w-44" title="${emp.gerencia}"><span class="text-blue-600 bg-blue-50 px-1 rounded mr-1">P00: ${emp.p00}</span> ${emp.gerencia}</div></td>`;
+                        <div class="flex items-center text-[10px] text-gray-500 mt-1 truncate w-44" title="${emp.gerencia}"><span class="text-blue-600 bg-blue-50 px-1 rounded mr-1">P00: ${emp.p00}</span> <span class="truncate">${emp.gerencia}</span>${btnRemover}</div></td>`;
                     
                     let empLlenos = 0;
 
@@ -627,6 +629,15 @@
             btn.innerHTML = 'Procesar'; btn.disabled = false;
         }
 
+        async function desvincularEmpleado(p00, nombre) {
+            if(!confirm(`¿Está seguro que desea remover a ${nombre} (P00: ${p00}) de su plantilla local?\n\nEsto no lo eliminará de la empresa, solo lo quitará de su vista de edición.`)) return;
+            try {
+                const res = await fetch(`${API_BASE}/api/unidad/remover-empleado/${currentUser}/${p00}`, { method: 'DELETE' });
+                if(res.ok) cargarDatosUnidad();
+                else { const err = await res.json(); alert(err.detail); }
+            } catch(e) { alert("Error de red."); }
+        }
+
         async function importarEstructuraRRHH() {
             const fileInput = document.getElementById('file-estructura');
             if(!fileInput.files[0]) return alert("Seleccione el Excel de Estructura Organizativa.");
@@ -771,7 +782,6 @@
                 if(!res.ok) { const err = await res.json(); return alert(err.detail); }
                 const blob = await res.blob(); const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a'); a.style.display = 'none'; a.href = url;
-                // Formateamos el nombre del archivo para quitar espacios al inicio o fin y caracteres raros.
                 let safeName = jurisdiccion.replace(/[^a-zA-Z0-9 ]/g, "").trim();
                 a.download = `Nomina_${safeName}.xlsx`;
                 document.body.appendChild(a); a.click(); window.URL.revokeObjectURL(url);
