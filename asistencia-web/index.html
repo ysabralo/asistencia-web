@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
-    <!-- Librerías para generar PDF en el navegador -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 
@@ -205,7 +204,7 @@
                     </div>
                 </div>
 
-                <!-- PANEL DE AUDITORÍA GLOBAL -->
+                <!-- PANEL DE AUDITORÍA GLOBAL (ACTUALIZADO) -->
                 <div class="col-span-1 lg:col-span-2 space-y-6 flex flex-col">
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100 flex-grow flex flex-col">
                         <div class="flex items-center justify-between mb-4 border-b pb-2">
@@ -215,7 +214,12 @@
                         <div class="overflow-y-auto flex-grow max-h-[500px] mb-4 border border-gray-200 rounded shadow-inner bg-gray-50">
                             <table class="min-w-full divide-y divide-gray-200">
                                 <thead class="bg-gray-200 sticky top-0 shadow-sm">
-                                    <tr><th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Unidad / Gerencia</th><th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Avance del Personal</th><th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Estatus</th></tr>
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase">Unidad / Gerencia</th>
+                                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Avance del Personal</th>
+                                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase">Estatus</th>
+                                        <th class="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase"><i class="fa-solid fa-download"></i></th>
+                                    </tr>
                                 </thead>
                                 <tbody id="tabla-monitoreo" class="bg-white divide-y divide-gray-100"></tbody>
                             </table>
@@ -707,15 +711,12 @@
             } catch(e) { alert("Error."); }
         }
 
-        // ==========================================
-        // MONITOREO RRHH (NUEVO DISEÑO CON BARRAS)
-        // ==========================================
         async function cargarMonitoreoRRHH() {
             const tbody = document.getElementById('tabla-monitoreo'); const badge = document.getElementById('rrhh-badge-semana');
             try {
                 const res = await fetch(`${API_BASE}/api/rrhh/monitoreo-entregas`);
                 const data = await res.json();
-                if(!data.semana_activa) { badge.innerText = "SIN SEMANA"; tbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-red-500">Semana inactiva.</td></tr>'; return; }
+                if(!data.semana_activa) { badge.innerText = "SIN SEMANA"; tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-red-500">Semana inactiva.</td></tr>'; return; }
                 
                 badge.innerText = `${data.fecha_inicio} al ${data.fecha_fin}`;
                 tbody.innerHTML = '';
@@ -739,16 +740,19 @@
                         </div>
                     `;
 
+                    let btnExcel = `<button onclick="descargarNominaJurisdiccion('${ent.jurisdiccion.replace(/'/g, "\\'")}')" class="text-green-600 bg-green-50 border border-green-200 hover:bg-green-600 hover:text-white px-2 py-1.5 rounded shadow-sm transition" title="Descargar Asistencia de ${ent.jurisdiccion}"><i class="fa-solid fa-file-excel"></i></button>`;
+
                     tbody.innerHTML += `
                         <tr class="hover:bg-blue-50 transition border-b border-gray-100">
                             <td class="px-4 py-3 text-sm font-bold text-gray-700 pl-6"><i class="fa-solid fa-building text-gray-300 mr-2"></i>${ent.jurisdiccion}</td>
                             <td class="px-4 py-3 text-center border-x border-gray-100">${barraProgreso}</td>
                             <td class="px-4 py-3 text-center">${estHtml}</td>
+                            <td class="px-4 py-3 text-center">${btnExcel}</td>
                         </tr>
                     `;
                 });
-                if(data.entregas.length === 0) tbody.innerHTML = '<tr><td colspan="3" class="p-4 text-center text-gray-500">No hay personal activo en la estructura.</td></tr>';
-            } catch (e) { tbody.innerHTML = '<tr><td colspan="3" class="text-center text-red-500 p-4">Error consultando ERP.</td></tr>'; }
+                if(data.entregas.length === 0) tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-gray-500">No hay personal activo en la estructura.</td></tr>';
+            } catch (e) { tbody.innerHTML = '<tr><td colspan="4" class="text-center text-red-500 p-4">Error consultando ERP.</td></tr>'; }
         }
 
         async function descargarConsolidadoNomina() {
@@ -757,6 +761,19 @@
                 if(!res.ok) { const err = await res.json(); return alert(err.detail); }
                 const blob = await res.blob(); const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a'); a.style.display = 'none'; a.href = url; a.download = "Nomina_Asistencia.xlsx";
+                document.body.appendChild(a); a.click(); window.URL.revokeObjectURL(url);
+            } catch(e) { alert("Error de descarga."); }
+        }
+
+        async function descargarNominaJurisdiccion(jurisdiccion) {
+            try {
+                const res = await fetch(`${API_BASE}/api/rrhh/descargar-jurisdiccion/${encodeURIComponent(jurisdiccion)}`);
+                if(!res.ok) { const err = await res.json(); return alert(err.detail); }
+                const blob = await res.blob(); const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.style.display = 'none'; a.href = url;
+                // Formateamos el nombre del archivo para quitar espacios al inicio o fin y caracteres raros.
+                let safeName = jurisdiccion.replace(/[^a-zA-Z0-9 ]/g, "").trim();
+                a.download = `Nomina_${safeName}.xlsx`;
                 document.body.appendChild(a); a.click(); window.URL.revokeObjectURL(url);
             } catch(e) { alert("Error de descarga."); }
         }
