@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title="Asistencia Movilnet ERP v5.4")
+app = FastAPI(title="Asistencia Movilnet ERP v5.5")
 
 app.add_middleware(
     CORSMiddleware,
@@ -237,14 +237,11 @@ async def cargar_maestro(file: UploadFile = File(...), db = Depends(get_db)):
 @app.post("/api/unidad/agregar-empleado")
 def agregar_empleado_unidad(req: EmpleadoUnidadRequest, db = Depends(get_db)):
     cursor = db.cursor()
-    
-    # 1. Verificar si OTRO usuario ya lo tiene reclamado
     cursor.execute("SELECT username FROM plantilla_local WHERE p00 = %s", (req.p00,))
     reclamado_por = cursor.fetchone()
     if reclamado_por and reclamado_por['username'] != req.username:
-        raise HTTPException(status_code=400, detail=f"Bloqueado: El P00 {req.p00} ya está siendo reportado por el usuario '{reclamado_por['username']}'.")
+        raise HTTPException(status_code=400, detail=f"Bloqueado: El P00 {req.p00} ya está siendo reportado por '{reclamado_por['username']}'.")
 
-    # 2. Continuar con la validación normal de jurisdicción
     cursor.execute("SELECT unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (req.username,))
     usr = cursor.fetchone()
     if not usr: raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -281,14 +278,12 @@ async def cargar_empleados_excel_unidad(username: str = Form(...), file: UploadF
         for _, fila in df.iterrows():
             p00 = str(fila['P00']).strip()
             if p00 and p00 != 'nan':
-                # 1. Verificar si ya fue reclamado por otro
                 cursor.execute("SELECT username FROM plantilla_local WHERE p00 = %s", (p00,))
                 reclamado_por = cursor.fetchone()
                 if reclamado_por and reclamado_por['username'] != username:
                     errores.append(f"{p00} (Ya reportado por {reclamado_por['username']})")
                     continue
 
-                # 2. Verificar existencia y jurisdicción
                 cursor.execute("SELECT unidad_administrativa, gerencia_general FROM empleados_maestro WHERE p00 = %s AND estatus = 'Activo'", (p00,))
                 emp = cursor.fetchone()
                 
@@ -309,7 +304,6 @@ async def cargar_empleados_excel_unidad(username: str = Form(...), file: UploadF
 
 @app.delete("/api/unidad/remover-empleado/{username}/{p00}")
 def remover_empleado_unidad(username: str, p00: str, db = Depends(get_db)):
-    """ Permite a un usuario corregir su error y desvincular un P00 de su plantilla """
     cursor = db.cursor()
     cursor.execute("DELETE FROM plantilla_local WHERE username = %s AND p00 = %s", (username, p00))
     db.commit()
@@ -575,6 +569,24 @@ def descargar_consolidado(db = Depends(get_db)):
     cursor.execute("SELECT semana_inicio, semana_fin FROM configuracion_sistema WHERE id = 1")
     config = cursor.fetchone()
     if not config: raise HTTPException(status_code=400, detail="No hay semana activa.")
+
+    # Candado de Seguridad 1: Verificar que TODAS las jurisdicciones estén al 100%
+    query_val = """
+        WITH emp_dias AS (
+            SELECT e.p00, COUNT(a.fecha) as dias_reportados
+            FROM empleados_maestro e
+            LEFT JOIN asistencia_diaria a ON e.p00 = a.p00 AND a.fecha BETWEEN %s AND %s
+            WHERE e.estatus = 'Activo'
+            GROUP BY e.p00
+        )
+        SELECT COUNT(p00) as total, SUM(CASE WHEN dias_reportados >= 7 THEN 1 ELSE 0 END) as completados FROM emp_dias
+    """
+    cursor.execute(query_val, (config['semana_inicio'], config['semana_fin']))
+    val_res = cursor.fetchone()
+    if not val_res or val_res['total'] == 0:
+        raise HTTPException(status_code=400, detail="No hay personal activo.")
+    if val_res['total'] > (val_res['completados'] or 0):
+        raise HTTPException(status_code=403, detail="Consolidado Bloqueado: Aún hay Unidades pendientes por certificar asistencia.")
         
     cursor.execute("""
         SELECT a.fecha, e.p00, e.cedula, e.nombres_apellidos, e.unidad_administrativa, e.gerencia_general, a.estatus, a.motivo 
@@ -593,6 +605,25 @@ def descargar_jurisdiccion(jurisdiccion: str, db = Depends(get_db)):
     cursor.execute("SELECT semana_inicio, semana_fin FROM configuracion_sistema WHERE id = 1")
     config = cursor.fetchone()
     if not config: raise HTTPException(status_code=400, detail="No hay semana activa.")
+
+    # Candado de Seguridad 2: Verificar que ESTA jurisdicción esté al 100%
+    query_val = """
+        WITH emp_dias AS (
+            SELECT e.p00, COUNT(a.fecha) as dias_reportados
+            FROM empleados_maestro e
+            LEFT JOIN asistencia_diaria a ON e.p00 = a.p00 AND a.fecha BETWEEN %s AND %s
+            WHERE e.estatus = 'Activo'
+            AND (CASE WHEN e.unidad_administrativa = 'Presidencia' THEN e.gerencia_general ELSE e.unidad_administrativa END) = %s
+            GROUP BY e.p00
+        )
+        SELECT COUNT(p00) as total, SUM(CASE WHEN dias_reportados >= 7 THEN 1 ELSE 0 END) as completados FROM emp_dias
+    """
+    cursor.execute(query_val, (config['semana_inicio'], config['semana_fin'], jurisdiccion))
+    val_res = cursor.fetchone()
+    if not val_res or val_res['total'] == 0:
+        raise HTTPException(status_code=400, detail="Esta jurisdicción no tiene personal adscrito.")
+    if val_res['total'] > (val_res['completados'] or 0):
+        raise HTTPException(status_code=403, detail="Bloqueado: Esta jurisdicción aún no está certificada al 100%.")
         
     query = """
         SELECT a.fecha, e.p00, e.cedula, e.nombres_apellidos, e.unidad_administrativa, e.gerencia_general, a.estatus, a.motivo 
