@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title="Asistencia Movilnet ERP v5.3")
+app = FastAPI(title="Asistencia Movilnet ERP v5.4")
 
 app.add_middleware(
     CORSMiddleware,
@@ -237,6 +237,14 @@ async def cargar_maestro(file: UploadFile = File(...), db = Depends(get_db)):
 @app.post("/api/unidad/agregar-empleado")
 def agregar_empleado_unidad(req: EmpleadoUnidadRequest, db = Depends(get_db)):
     cursor = db.cursor()
+    
+    # 1. Verificar si OTRO usuario ya lo tiene reclamado
+    cursor.execute("SELECT username FROM plantilla_local WHERE p00 = %s", (req.p00,))
+    reclamado_por = cursor.fetchone()
+    if reclamado_por and reclamado_por['username'] != req.username:
+        raise HTTPException(status_code=400, detail=f"Bloqueado: El P00 {req.p00} ya está siendo reportado por el usuario '{reclamado_por['username']}'.")
+
+    # 2. Continuar con la validación normal de jurisdicción
     cursor.execute("SELECT unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (req.username,))
     usr = cursor.fetchone()
     if not usr: raise HTTPException(status_code=404, detail="Usuario no encontrado")
@@ -273,6 +281,14 @@ async def cargar_empleados_excel_unidad(username: str = Form(...), file: UploadF
         for _, fila in df.iterrows():
             p00 = str(fila['P00']).strip()
             if p00 and p00 != 'nan':
+                # 1. Verificar si ya fue reclamado por otro
+                cursor.execute("SELECT username FROM plantilla_local WHERE p00 = %s", (p00,))
+                reclamado_por = cursor.fetchone()
+                if reclamado_por and reclamado_por['username'] != username:
+                    errores.append(f"{p00} (Ya reportado por {reclamado_por['username']})")
+                    continue
+
+                # 2. Verificar existencia y jurisdicción
                 cursor.execute("SELECT unidad_administrativa, gerencia_general FROM empleados_maestro WHERE p00 = %s AND estatus = 'Activo'", (p00,))
                 emp = cursor.fetchone()
                 
@@ -285,11 +301,19 @@ async def cargar_empleados_excel_unidad(username: str = Form(...), file: UploadF
                 
         db.commit()
         msg = f"Se integraron {cargas} empleados."
-        if errores: msg += f"\nRechazados por jurisdicción: {len(errores)}"
+        if errores: msg += f"\nRechazados o Duplicados: {len(errores)}"
         return {"success": True, "mensaje": msg}
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
+
+@app.delete("/api/unidad/remover-empleado/{username}/{p00}")
+def remover_empleado_unidad(username: str, p00: str, db = Depends(get_db)):
+    """ Permite a un usuario corregir su error y desvincular un P00 de su plantilla """
+    cursor = db.cursor()
+    cursor.execute("DELETE FROM plantilla_local WHERE username = %s AND p00 = %s", (username, p00))
+    db.commit()
+    return {"success": True, "mensaje": "Empleado desvinculado correctamente."}
 
 # ==========================================
 # 4. CONTROL DE ASISTENCIA DIARIA 
@@ -517,17 +541,14 @@ def monitoreo_entregas(db = Depends(get_db)):
     }
 
 def generar_excel_agrupado(df_detalle, nombre_archivo):
-    """ Función interna para generar el Excel con las dos pestañas (Detalle y Resumen a Pagar/Descontar) """
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         if not df_detalle.empty:
             df_detalle['fecha'] = pd.to_datetime(df_detalle['fecha']).dt.strftime('%d/%m/%Y')
             df_detalle.columns = ['Fecha', 'P00', 'Cédula', 'Nombres y Apellidos', 'Unidad Administrativa (VP)', 'Gerencia General', 'Estatus Asistencia', 'Motivo']
             
-            # Pestaña 1: Detalle Completo
             df_detalle.to_excel(writer, index=False, sheet_name="Detalle_Asistencia")
             
-            # Categorías de Pago
             pagar_list = ["Asistencia Normal", "Vacaciones", "Dia Descanso Legal", "Dia Libre Compensatorio"]
             descontar_list = ["Teletrabajo", "Reposo", "Permiso otorgado", "Falta Injustificada"]
             
@@ -535,13 +556,11 @@ def generar_excel_agrupado(df_detalle, nombre_archivo):
             df_resumen['Días a Pagar'] = df_resumen['Estatus Asistencia'].apply(lambda x: 1 if x in pagar_list else 0)
             df_resumen['Días a Descontar'] = df_resumen['Estatus Asistencia'].apply(lambda x: 1 if x in descontar_list else 0)
             
-            # Agrupar por empleado
             df_resumen = df_resumen.groupby(['P00', 'Cédula', 'Nombres y Apellidos', 'Unidad Administrativa (VP)', 'Gerencia General'], as_index=False).agg({
                 'Días a Pagar': 'sum',
                 'Días a Descontar': 'sum'
             })
             
-            # Pestaña 2: Resumen Pre-Nómina
             df_resumen.to_excel(writer, index=False, sheet_name="Resumen_Pago")
         else:
             pd.DataFrame(["No hay registros"]).to_excel(writer, index=False, sheet_name="Sin_Datos")
