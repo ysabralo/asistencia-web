@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title="Asistencia Movilnet ERP v5.0")
+app = FastAPI(title="Asistencia Movilnet ERP v5.1")
 
 app.add_middleware(
     CORSMiddleware,
@@ -469,7 +469,7 @@ def enviar_a_rrhh(req: EnvioRRHHRequest, db = Depends(get_db)):
     return {"success": True, "mensaje": "Reporte certificado y enviado a RRHH."}
 
 # ==========================================
-# 5. MONITOREO RRHH
+# 5. MONITOREO RRHH (AGRUPACIÓN DINÁMICA POR ESTRUCTURA)
 # ==========================================
 @app.get("/api/rrhh/monitoreo-entregas")
 def monitoreo_entregas(db = Depends(get_db)):
@@ -478,24 +478,44 @@ def monitoreo_entregas(db = Depends(get_db)):
     config = cursor.fetchone()
     if not config: return {"semana_activa": False, "entregas": []}
     
-    cursor.execute("""
-        SELECT u.username as unidad, u.unidad_administrativa, u.gerencia_general,
-               (SELECT COUNT(e.p00) FROM empleados_maestro e WHERE e.estatus = 'Activo' 
-                AND (e.unidad_administrativa = u.unidad_administrativa OR u.unidad_administrativa = '' OR u.unidad_administrativa IS NULL)
-                AND (e.gerencia_general = u.gerencia_general OR u.gerencia_general = '' OR u.gerencia_general IS NULL)) as total_empleados,
-               ent.estatus_entrega, ent.fecha_envio
-        FROM usuarios u
-        LEFT JOIN estado_entregas ent ON u.username = ent.unidad_nombre AND ent.semana_inicio = %s AND ent.semana_fin = %s
-        WHERE u.rol IN ('Cierre de Unidad')
-        ORDER BY u.unidad_administrativa ASC, u.gerencia_general ASC, u.username ASC
-    """, (config['semana_inicio'], config['semana_fin']))
+    # Lógica Matemática: Cuenta P00s totales vs P00s que tienen 7 días llenos por cada Jurisdicción
+    query = """
+        WITH emp_dias AS (
+            SELECT 
+                e.p00, 
+                e.unidad_administrativa, 
+                e.gerencia_general,
+                COUNT(a.fecha) as dias_reportados
+            FROM empleados_maestro e
+            LEFT JOIN asistencia_diaria a ON e.p00 = a.p00 AND a.fecha BETWEEN %s AND %s
+            WHERE e.estatus = 'Activo'
+            GROUP BY e.p00, e.unidad_administrativa, e.gerencia_general
+        )
+        SELECT 
+            CASE 
+                WHEN unidad_administrativa = 'Presidencia' THEN gerencia_general
+                ELSE unidad_administrativa
+            END as jurisdiccion,
+            COUNT(p00) as total_empleados,
+            SUM(CASE WHEN dias_reportados >= 7 THEN 1 ELSE 0 END) as completados
+        FROM emp_dias
+        GROUP BY 
+            CASE 
+                WHEN unidad_administrativa = 'Presidencia' THEN gerencia_general
+                ELSE unidad_administrativa
+            END
+        ORDER BY jurisdiccion ASC
+    """
     
+    cursor.execute(query, (config['semana_inicio'], config['semana_fin']))
     resultados = cursor.fetchall()
-    for res in resultados:
-        res['fecha_envio'] = res['fecha_envio'].strftime('%d/%m/%Y %I:%M %p') if res['fecha_envio'] else 'Pendiente'
-        res['unidad_administrativa'] = res['unidad_administrativa'] if res['unidad_administrativa'] else "JURISDICCIÓN GLOBAL"
             
-    return {"semana_activa": True, "fecha_inicio": config['semana_inicio'].strftime('%d/%m/%Y'), "fecha_fin": config['semana_fin'].strftime('%d/%m/%Y'), "entregas": resultados}
+    return {
+        "semana_activa": True, 
+        "fecha_inicio": config['semana_inicio'].strftime('%d/%m/%Y'), 
+        "fecha_fin": config['semana_fin'].strftime('%d/%m/%Y'), 
+        "entregas": resultados
+    }
 
 @app.get("/api/rrhh/descargar-consolidado")
 def descargar_consolidado(db = Depends(get_db)):
