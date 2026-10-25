@@ -453,22 +453,17 @@
                         const td = document.createElement('td'); td.className = "px-2 py-3 border-r";
                         const estActual = (emp.asistencia[f]) ? emp.asistencia[f].estatus : "";
                         const ausentismoActivo = semanaData.ausentismos.find(a => a.p00 === emp.p00 && f >= a.fecha_inicio && f <= a.fecha_fin);
-                        
-                        const select = document.createElement('select');
-                        select.className = "block w-full text-[11px] border border-gray-300 rounded p-1 bg-gray-50 outline-none transition";
+                        const select = document.createElement('select'); select.className = "block w-full text-[11px] border border-gray-300 rounded p-1 bg-gray-50 outline-none transition";
                         
                         if (ausentismoActivo) {
-                            select.disabled = true; select.title = "Cargado por RRHH";
-                            select.classList.add("cursor-not-allowed", "opacity-100", "bg-purple-100", "text-purple-800", "font-bold", "border-purple-300", "uppercase");
+                            select.disabled = true; select.title = "Cargado por RRHH"; select.classList.add("cursor-not-allowed", "opacity-100", "bg-purple-100", "text-purple-800", "font-bold", "border-purple-300", "uppercase");
                             const opt = document.createElement('option'); opt.value = ausentismoActivo.tipo_ausentismo; opt.innerText = ausentismoActivo.tipo_ausentismo.toUpperCase(); opt.selected = true; select.appendChild(opt);
                             empLlenos++;
                         } else {
                             if(estActual !== "") empLlenos++;
                             if(!emp.editable) { select.disabled = true; select.classList.add("cursor-not-allowed", "opacity-90"); }
-                            
                             ESTATUS_PERMITIDOS.forEach(est => {
-                                const opt = document.createElement('option'); opt.value = est; 
-                                opt.innerText = est === "" ? (emp.editable ? "Pendiente" : "Sin Reporte") : est;
+                                const opt = document.createElement('option'); opt.value = est; opt.innerText = est === "" ? (emp.editable ? "Pendiente" : "Sin Reporte") : est;
                                 if(est === estActual) opt.selected = true; select.appendChild(opt);
                             });
                             
@@ -476,14 +471,15 @@
                             else if(estActual === "Asistencia Normal") select.classList.add("bg-green-50", "text-green-700", "border-green-300");
                             else if(estActual === "Teletrabajo") select.classList.add("bg-cyan-50", "text-cyan-700", "font-bold", "border-cyan-300");
                             else if(["Reposo", "Vacaciones", "Permiso otorgado"].includes(estActual)) select.classList.add("bg-purple-50", "text-purple-700", "font-bold", "border-purple-300");
-                            
                             if(estActual === "" && !emp.editable) select.classList.add("bg-red-50", "text-red-500", "font-bold", "border-red-400");
-                            if(emp.editable) select.onchange = (e) => registrarDiaVuelo(emp.p00, f, e.target.value, select);
+                            if (emp.editable) select.onchange = (e) => registrarDiaVuelo(emp.p00, f, e.target.value, select);
                         }
                         td.appendChild(select); tr.appendChild(td);
                     });
 
-                    tr.setAttribute('data-nombre', emp.nombres_apellidos.toLowerCase()); tr.setAttribute('data-p00', emp.p00); tr.setAttribute('data-faltante', empLlenos < 7 ? 'si' : 'no');
+                    tr.setAttribute('data-nombre', emp.nombres_apellidos.toLowerCase());
+                    tr.setAttribute('data-p00', emp.p00);
+                    tr.setAttribute('data-faltante', empLlenos < 7 ? 'si' : 'no');
 
                     if (emp.editable) { tbodyMios.appendChild(tr); miosTotal++; miosLlenos += empLlenos; miosFaltan += (7 - empLlenos); } 
                     else { tbodyOtros.appendChild(tr); otrosTotal++; otrosLlenos += empLlenos; otrosFaltan += (7 - empLlenos); }
@@ -491,24 +487,29 @@
 
                 if (miosTotal === 0) tbodyMios.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-gray-500">No ha reclamado personal. Use el panel superior para vincular sus P00.</td></tr>';
                 if (otrosTotal === 0) tbodyOtros.innerHTML = '<tr><td colspan="8" class="px-6 py-6 text-center text-gray-500">No hay personal externo en su jurisdicción.</td></tr>';
-                
                 if (data.empleados.length > 0) barraHerramientas.classList.remove('hidden');
-
-                if(currentRole === 'Cierre de Unidad') {
+                
+                if (currentRole === 'Cierre de Unidad') { 
                     document.getElementById('panel-resumen-ejecutivo').classList.remove('hidden');
+                    document.getElementById('card-terceros').classList.remove('hidden'); 
                     document.getElementById('panel-cierre-unidad').classList.remove('hidden');
                     document.getElementById('panel-cierre-unidad').classList.add('flex');
-                    document.getElementById('card-terceros').classList.remove('hidden');
-                    if(otrosTotal > 0) document.getElementById('btn-toggle-wrapper').classList.remove('hidden');
+                    if(otrosTotal > 0) document.getElementById('btn-toggle-wrapper').classList.remove('hidden'); 
                 }
 
-                document.getElementById('kpi-mios-total').innerText = miosTotal; document.getElementById('kpi-mios-listos').innerText = Math.floor(miosLlenos/7); document.getElementById('kpi-mios-faltan').innerText = Math.ceil(miosFaltan/7);
+                document.getElementById('kpi-mios-total').innerText = miosTotal;
+                document.getElementById('kpi-mios-listos').innerText = Math.floor(miosLlenos/7);
+                document.getElementById('kpi-mios-faltan').innerText = Math.ceil(miosFaltan/7);
                 document.getElementById('kpi-mios-bar').style.width = (miosTotal > 0 ? (miosLlenos / (miosTotal*7))*100 : 0) + '%';
                 
-                document.getElementById('kpi-otros-total').innerText = otrosTotal; document.getElementById('kpi-otros-listos').innerText = Math.floor(otrosLlenos/7); document.getElementById('kpi-otros-faltan').innerText = Math.ceil(otrosFaltan/7);
+                document.getElementById('kpi-otros-total').innerText = otrosTotal;
+                document.getElementById('kpi-otros-listos').innerText = Math.floor(otrosLlenos/7);
+                document.getElementById('kpi-otros-faltan').innerText = Math.ceil(otrosFaltan/7);
                 document.getElementById('kpi-otros-bar').style.width = (otrosTotal > 0 ? (otrosLlenos / (otrosTotal*7))*100 : 0) + '%';
 
-                const totalGlobalDias = (miosTotal + otrosTotal) * 7; const llenosGlobalDias = miosLlenos + otrosLlenos;
+                const totalGlobalDias = (miosTotal + otrosTotal) * 7;
+                const llenosGlobalDias = miosLlenos + otrosLlenos;
+                
                 const bar = document.getElementById('progress-bar-global'); const txt = document.getElementById('progress-text-global');
                 const btn = document.getElementById('btn-enviar-rrhh'); 
                 
@@ -762,15 +763,19 @@
                 badge.innerText = `${data.fecha_inicio} al ${data.fecha_fin}`;
                 tbody.innerHTML = '';
                 
-                let sumCompletados = 0; let sumTotales = 0;
+                let sumCompletados = 0; let sumTotales = 0; let todasCertificadas = true;
                 
                 data.entregas.forEach(ent => {
                     let completados = parseInt(ent.completados) || 0; let total = parseInt(ent.total_empleados) || 0;
+                    let certificado = parseInt(ent.certificado) === 1;
+                    
                     sumCompletados += completados; sumTotales += total;
+                    if(total > 0 && !certificado) todasCertificadas = false;
+
                     let porcentaje = total > 0 ? Math.round((completados / total) * 100) : 0;
                     
-                    let estHtml = porcentaje === 100 && total > 0 
-                        ? `<span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-[10px] font-bold"><i class="fa-solid fa-check mr-1"></i>COMPLETADO</span>` 
+                    let estHtml = certificado 
+                        ? `<span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-[10px] font-bold"><i class="fa-solid fa-check-double mr-1"></i>CERTIFICADO</span>` 
                         : `<span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-[10px] font-bold"><i class="fa-solid fa-clock mr-1"></i>PENDIENTE</span>`;
                     
                     let barraProgreso = `
@@ -784,11 +789,12 @@
                     `;
 
                     let jsJuris = ent.jurisdiccion.replace(/'/g, "\\'");
-                    let btnExcel = porcentaje === 100 && total > 0
+                    
+                    let btnExcel = certificado
                         ? `<button onclick="descargarNominaJurisdiccion('${jsJuris}')" class="text-green-600 bg-green-50 border border-green-200 hover:bg-green-600 hover:text-white px-2 py-1.5 rounded shadow-sm transition" title="Descargar Asistencia"><i class="fa-solid fa-file-excel"></i></button>`
                         : `<button disabled class="text-gray-400 bg-gray-100 border border-gray-200 cursor-not-allowed px-2 py-1.5 rounded shadow-sm transition" title="Falta certificar asistencia"><i class="fa-solid fa-lock"></i></button>`;
 
-                    let btnReversar = porcentaje === 100 && total > 0
+                    let btnReversar = certificado
                         ? `<button onclick="reversarCierre('${jsJuris}')" class="text-orange-600 bg-orange-50 border border-orange-200 hover:bg-orange-600 hover:text-white px-2 py-1.5 rounded shadow-sm transition ml-1" title="Reversar Cierre (Abrir Edición)"><i class="fa-solid fa-unlock"></i></button>`
                         : ``;
 
@@ -804,9 +810,8 @@
                 
                 if(data.entregas.length === 0) tbody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-gray-500">No hay personal activo en la estructura.</td></tr>';
 
-                let globalPorcentaje = sumTotales > 0 ? Math.round((sumCompletados / sumTotales) * 100) : 0;
                 const btnGlobal = document.getElementById('btn-exportar-global');
-                if (globalPorcentaje === 100 && sumTotales > 0) {
+                if (todasCertificadas && sumTotales > 0) {
                     btnGlobal.disabled = false; btnGlobal.classList.remove('bg-gray-400', 'cursor-not-allowed'); btnGlobal.classList.add('bg-purple-600', 'hover:bg-purple-700');
                     btnGlobal.innerHTML = '<i class="fa-solid fa-file-excel mr-2 text-xl"></i> Exportar Nómina Consolidada';
                 } else {
