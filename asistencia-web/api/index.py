@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title="Asistencia Movilnet ERP v5.5")
+app = FastAPI(title="Asistencia Movilnet ERP v5.6")
 
 app.add_middleware(
     CORSMiddleware,
@@ -74,6 +74,9 @@ class EnvioRRHHRequest(BaseModel):
 class EmpleadoUnidadRequest(BaseModel):
     username: str
     p00: str
+
+class ReversarRequest(BaseModel):
+    jurisdiccion: str
 
 # ==========================================
 # 1. GESTIÓN DE USUARIOS Y ROLES
@@ -310,7 +313,7 @@ def remover_empleado_unidad(username: str, p00: str, db = Depends(get_db)):
     return {"success": True, "mensaje": "Empleado desvinculado correctamente."}
 
 # ==========================================
-# 4. CONTROL DE ASISTENCIA DIARIA 
+# 4. CONTROL DE ASISTENCIA Y CIERRES
 # ==========================================
 @app.get("/api/mi-asistencia/{username}")
 def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
@@ -486,9 +489,75 @@ def enviar_a_rrhh(req: EnvioRRHHRequest, db = Depends(get_db)):
     db.commit()
     return {"success": True, "mensaje": "Reporte certificado y enviado a RRHH."}
 
+@app.post("/api/rrhh/reversar-cierre")
+def reversar_cierre(req: ReversarRequest, db = Depends(get_db)):
+    """ Elimina el estatus de enviado a RRHH de una jurisdicción para permitirles editar nuevamente """
+    cursor = db.cursor()
+    cursor.execute("SELECT semana_inicio, semana_fin FROM configuracion_sistema WHERE id = 1")
+    config = cursor.fetchone()
+    if not config: raise HTTPException(status_code=400, detail="No hay semana activa.")
+
+    # Se busca qué usuarios de Cierre de Unidad pertenecen a esa Jurisdicción (VP o GG)
+    query_users = """
+        SELECT username FROM usuarios 
+        WHERE rol = 'Cierre de Unidad' 
+        AND (CASE WHEN unidad_administrativa = 'Presidencia' THEN gerencia_general ELSE unidad_administrativa END) = %s
+    """
+    cursor.execute(query_users, (req.jurisdiccion,))
+    users = cursor.fetchall()
+    
+    if not users:
+        raise HTTPException(status_code=404, detail="No se encontraron Jefaturas para esta Jurisdicción.")
+        
+    for u in users:
+        cursor.execute("""
+            DELETE FROM estado_entregas 
+            WHERE unidad_nombre = %s AND semana_inicio = %s AND semana_fin = %s
+        """, (u['username'], config['semana_inicio'], config['semana_fin']))
+        
+    db.commit()
+    return {"success": True, "mensaje": f"Sello de cierre roto. {req.jurisdiccion} puede editar nuevamente."}
+
 # ==========================================
-# 5. MONITOREO RRHH Y EXPORTACIÓN
+# 5. HISTÓRICO Y MONITOREO RRHH
 # ==========================================
+@app.get("/api/unidad/historico/{username}")
+def obtener_historico_unidad(username: str, db = Depends(get_db)):
+    cursor = db.cursor()
+    cursor.execute("SELECT rol, unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (username,))
+    usr = cursor.fetchone()
+    if not usr: raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    query = """
+        SELECT a.fecha, e.p00, e.nombres_apellidos, e.unidad_administrativa, e.gerencia_general, a.estatus, a.motivo
+        FROM asistencia_diaria a
+        INNER JOIN empleados_maestro e ON a.p00 = e.p00
+        WHERE 1=1
+    """
+    params = []
+    
+    if usr['rol'] == 'Reportador':
+        query += " AND e.p00 IN (SELECT p00 FROM plantilla_local WHERE username = %s)"
+        params.append(username)
+    else:
+        if usr['unidad_administrativa']:
+            query += " AND e.unidad_administrativa = %s"
+            params.append(usr['unidad_administrativa'])
+        if usr['gerencia_general']:
+            query += " AND e.gerencia_general = %s"
+            params.append(usr['gerencia_general'])
+            
+    query += " ORDER BY a.fecha DESC, e.nombres_apellidos ASC"
+    
+    cursor.execute(query, params)
+    registros = cursor.fetchall()
+    
+    for r in registros:
+        r['fecha'] = r['fecha'].strftime('%d/%m/%Y')
+        if not r['motivo']: r['motivo'] = "-"
+        
+    return {"success": True, "historico": registros}
+
 @app.get("/api/rrhh/monitoreo-entregas")
 def monitoreo_entregas(db = Depends(get_db)):
     cursor = db.cursor()
@@ -540,7 +609,6 @@ def generar_excel_agrupado(df_detalle, nombre_archivo):
         if not df_detalle.empty:
             df_detalle['fecha'] = pd.to_datetime(df_detalle['fecha']).dt.strftime('%d/%m/%Y')
             df_detalle.columns = ['Fecha', 'P00', 'Cédula', 'Nombres y Apellidos', 'Unidad Administrativa (VP)', 'Gerencia General', 'Estatus Asistencia', 'Motivo']
-            
             df_detalle.to_excel(writer, index=False, sheet_name="Detalle_Asistencia")
             
             pagar_list = ["Asistencia Normal", "Vacaciones", "Dia Descanso Legal", "Dia Libre Compensatorio"]
@@ -551,10 +619,8 @@ def generar_excel_agrupado(df_detalle, nombre_archivo):
             df_resumen['Días a Descontar'] = df_resumen['Estatus Asistencia'].apply(lambda x: 1 if x in descontar_list else 0)
             
             df_resumen = df_resumen.groupby(['P00', 'Cédula', 'Nombres y Apellidos', 'Unidad Administrativa (VP)', 'Gerencia General'], as_index=False).agg({
-                'Días a Pagar': 'sum',
-                'Días a Descontar': 'sum'
+                'Días a Pagar': 'sum', 'Días a Descontar': 'sum'
             })
-            
             df_resumen.to_excel(writer, index=False, sheet_name="Resumen_Pago")
         else:
             pd.DataFrame(["No hay registros"]).to_excel(writer, index=False, sheet_name="Sin_Datos")
@@ -570,7 +636,6 @@ def descargar_consolidado(db = Depends(get_db)):
     config = cursor.fetchone()
     if not config: raise HTTPException(status_code=400, detail="No hay semana activa.")
 
-    # Candado de Seguridad 1: Verificar que TODAS las jurisdicciones estén al 100%
     query_val = """
         WITH emp_dias AS (
             SELECT e.p00, COUNT(a.fecha) as dias_reportados
@@ -596,7 +661,6 @@ def descargar_consolidado(db = Depends(get_db)):
     
     df_detalle = pd.DataFrame(cursor.fetchall())
     nombre_archivo = f"Nomina_Consolidada_{config['semana_inicio']}"
-    
     return generar_excel_agrupado(df_detalle, nombre_archivo)
 
 @app.get("/api/rrhh/descargar-jurisdiccion/{jurisdiccion}")
@@ -606,7 +670,6 @@ def descargar_jurisdiccion(jurisdiccion: str, db = Depends(get_db)):
     config = cursor.fetchone()
     if not config: raise HTTPException(status_code=400, detail="No hay semana activa.")
 
-    # Candado de Seguridad 2: Verificar que ESTA jurisdicción esté al 100%
     query_val = """
         WITH emp_dias AS (
             SELECT e.p00, COUNT(a.fecha) as dias_reportados
@@ -629,12 +692,7 @@ def descargar_jurisdiccion(jurisdiccion: str, db = Depends(get_db)):
         SELECT a.fecha, e.p00, e.cedula, e.nombres_apellidos, e.unidad_administrativa, e.gerencia_general, a.estatus, a.motivo 
         FROM asistencia_diaria a INNER JOIN empleados_maestro e ON a.p00 = e.p00
         WHERE a.fecha BETWEEN %s AND %s 
-        AND (
-            CASE 
-                WHEN e.unidad_administrativa = 'Presidencia' THEN e.gerencia_general
-                ELSE e.unidad_administrativa
-            END
-        ) = %s
+        AND (CASE WHEN e.unidad_administrativa = 'Presidencia' THEN e.gerencia_general ELSE e.unidad_administrativa END) = %s
         ORDER BY e.unidad_administrativa ASC, e.gerencia_general ASC, e.p00 ASC, a.fecha ASC
     """
     cursor.execute(query, (config['semana_inicio'], config['semana_fin'], jurisdiccion))
@@ -642,7 +700,6 @@ def descargar_jurisdiccion(jurisdiccion: str, db = Depends(get_db)):
     df_detalle = pd.DataFrame(cursor.fetchall())
     safe_name = "".join([c for c in jurisdiccion if c.isalpha() or c.isdigit() or c==' ']).rstrip()
     nombre_archivo = f"Nomina_{safe_name}"
-    
     return generar_excel_agrupado(df_detalle, nombre_archivo)
 
 @app.get("/")
