@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title="Asistencia Movilnet ERP v5.6")
+app = FastAPI(title="Asistencia Movilnet ERP v5.7")
 
 app.add_middleware(
     CORSMiddleware,
@@ -77,6 +77,22 @@ class EmpleadoUnidadRequest(BaseModel):
 
 class ReversarRequest(BaseModel):
     jurisdiccion: str
+
+def is_jurisdiction_locked(cursor, username, semana_ini, semana_fin):
+    """ Verifica si la unidad del usuario ya fue certificada por un Jefe de Unidad """
+    cursor.execute("SELECT rol, unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (username,))
+    usr = cursor.fetchone()
+    if not usr or usr['rol'] == 'Recursos Humanos': return False
+    
+    query = """
+        SELECT 1 FROM estado_entregas e
+        JOIN usuarios u ON e.unidad_nombre = u.username
+        WHERE e.semana_inicio = %s AND e.semana_fin = %s
+        AND u.unidad_administrativa = %s
+        AND (u.gerencia_general = '' OR u.gerencia_general IS NULL OR u.gerencia_general = %s)
+    """
+    cursor.execute(query, (semana_ini, semana_fin, usr['unidad_administrativa'], usr['gerencia_general']))
+    return bool(cursor.fetchone())
 
 # ==========================================
 # 1. GESTIÓN DE USUARIOS Y ROLES
@@ -313,7 +329,7 @@ def remover_empleado_unidad(username: str, p00: str, db = Depends(get_db)):
     return {"success": True, "mensaje": "Empleado desvinculado correctamente."}
 
 # ==========================================
-# 4. CONTROL DE ASISTENCIA Y CIERRES
+# 4. CONTROL DE ASISTENCIA DIARIA (VISTA ACTIVA)
 # ==========================================
 @app.get("/api/mi-asistencia/{username}")
 def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
@@ -327,6 +343,8 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
     cursor.execute("SELECT rol, unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (username,))
     usr = cursor.fetchone()
     if not usr: raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    
+    bloqueado = is_jurisdiction_locked(cursor, username, semana_ini, semana_fin)
     
     cursor.execute("SELECT p00 FROM plantilla_local WHERE username = %s", (username,))
     mis_p00s = {row['p00'] for row in cursor.fetchall()}
@@ -356,8 +374,7 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
     registros = cursor.fetchall()
     
     cursor.execute("SELECT p00, tipo_ausentismo, fecha_inicio, fecha_fin FROM ausentismos_rrhh WHERE fecha_inicio <= %s AND fecha_fin >= %s", (semana_fin, semana_ini))
-    ausentismos_raw = cursor.fetchall()
-    ausentismos_fijos = [{"p00": a['p00'], "tipo_ausentismo": a['tipo_ausentismo'], "fecha_inicio": a['fecha_inicio'].strftime('%Y-%m-%d'), "fecha_fin": a['fecha_fin'].strftime('%Y-%m-%d')} for a in ausentismos_raw]
+    ausentismos_fijos = [{"p00": a['p00'], "tipo_ausentismo": a['tipo_ausentismo'], "fecha_inicio": a['fecha_inicio'].strftime('%Y-%m-%d'), "fecha_fin": a['fecha_fin'].strftime('%Y-%m-%d')} for a in cursor.fetchall()]
     
     empleados_dict = {}
     for reg in registros:
@@ -373,10 +390,6 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
             fecha_str = reg['fecha'].strftime('%Y-%m-%d')
             empleados_dict[p00]["asistencia"][fecha_str] = {"estatus": reg['estatus'], "motivo": reg['motivo']}
             
-    cursor.execute("SELECT estatus_entrega FROM estado_entregas WHERE unidad_nombre = %s AND semana_inicio = %s AND semana_fin = %s", (username, semana_ini, semana_fin))
-    entrega = cursor.fetchone()
-    bloqueado = True if entrega and entrega['estatus_entrega'] == 'Enviado a RRHH' else False
-            
     return {
         "semana_activa": True, "fecha_inicio": semana_ini.strftime('%Y-%m-%d'), "fecha_fin": semana_fin.strftime('%Y-%m-%d'),
         "bloqueado_por_envio": bloqueado, "empleados": list(empleados_dict.values()), "ausentismos_fijos": ausentismos_fijos
@@ -389,16 +402,16 @@ def guardar_dia(req: AsistenciaDiaRequest, db = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Debe indicar el motivo.")
 
     cursor = db.cursor()
-    cursor.execute("SELECT estatus FROM configuracion_sistema WHERE id = 1")
+    cursor.execute("SELECT semana_inicio, semana_fin, estatus FROM configuracion_sistema WHERE id = 1")
     config = cursor.fetchone()
     if config and config['estatus'] == 'Cerrada': raise HTTPException(status_code=403, detail="Semana cerrada.")
 
-    cursor.execute("SELECT rol FROM usuarios WHERE username = %s", (req.username,))
-    usr = cursor.fetchone()
-    if usr and usr['rol'] in ['Reportador', 'Cierre de Unidad']:
-        cursor.execute("SELECT 1 FROM plantilla_local WHERE username = %s AND p00 = %s", (req.username, req.p00))
-        if not cursor.fetchone():
-            raise HTTPException(status_code=403, detail="Error: No puede editar personal que no está en su plantilla local.")
+    if is_jurisdiction_locked(cursor, req.username, config['semana_inicio'], config['semana_fin']):
+        raise HTTPException(status_code=403, detail="Bloqueado: La Jefatura de Unidad ya certificó y cerró la asistencia.")
+
+    cursor.execute("SELECT 1 FROM plantilla_local WHERE username = %s AND p00 = %s", (req.username, req.p00))
+    if not cursor.fetchone():
+        raise HTTPException(status_code=403, detail="Error: Solo puede editar personal en su plantilla local.")
 
     if req.estatus == "":
         cursor.execute("DELETE FROM asistencia_diaria WHERE p00 = %s AND fecha = %s", (req.p00, req.fecha))
@@ -414,16 +427,16 @@ def guardar_dia(req: AsistenciaDiaRequest, db = Depends(get_db)):
 @app.post("/api/guardar-rango")
 def guardar_rango(req: RangoAsistenciaRequest, db = Depends(get_db)):
     cursor = db.cursor()
-    cursor.execute("SELECT estatus, semana_inicio, semana_fin FROM configuracion_sistema WHERE id = 1")
+    cursor.execute("SELECT semana_inicio, semana_fin, estatus FROM configuracion_sistema WHERE id = 1")
     config = cursor.fetchone()
     if config and config['estatus'] == 'Cerrada': raise HTTPException(status_code=403, detail="Semana cerrada.")
 
-    cursor.execute("SELECT rol FROM usuarios WHERE username = %s", (req.username,))
-    usr = cursor.fetchone()
-    if usr and usr['rol'] in ['Reportador', 'Cierre de Unidad']:
-        cursor.execute("SELECT 1 FROM plantilla_local WHERE username = %s AND p00 = %s", (req.username, req.p00))
-        if not cursor.fetchone():
-            raise HTTPException(status_code=403, detail="Error de Permisos.")
+    if is_jurisdiction_locked(cursor, req.username, config['semana_inicio'], config['semana_fin']):
+        raise HTTPException(status_code=403, detail="Bloqueado: La Jefatura de Unidad ya certificó y cerró la asistencia.")
+
+    cursor.execute("SELECT 1 FROM plantilla_local WHERE username = %s AND p00 = %s", (req.username, req.p00))
+    if not cursor.fetchone():
+        raise HTTPException(status_code=403, detail="Error: Solo puede editar personal en su plantilla local.")
 
     d_ini = pd.to_datetime(req.fecha_inicio)
     d_fin = pd.to_datetime(req.fecha_fin)
@@ -489,6 +502,82 @@ def enviar_a_rrhh(req: EnvioRRHHRequest, db = Depends(get_db)):
     db.commit()
     return {"success": True, "mensaje": "Reporte certificado y enviado a RRHH."}
 
+# ==========================================
+# 5. HISTÓRICO DE SEMANAS CERRADAS
+# ==========================================
+@app.get("/api/unidad/semanas-cerradas/{username}")
+def semanas_cerradas(username: str, db = Depends(get_db)):
+    """ Devuelve un listado de las semanas que ya fueron certificadas (Histórico) """
+    cursor = db.cursor()
+    cursor.execute("SELECT unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (username,))
+    usr = cursor.fetchone()
+    if not usr: return {"semanas": []}
+    
+    query = """
+        SELECT DISTINCT e.semana_inicio, e.semana_fin
+        FROM estado_entregas e
+        JOIN usuarios u ON e.unidad_nombre = u.username
+        WHERE u.unidad_administrativa = %s 
+        AND (u.gerencia_general = '' OR u.gerencia_general IS NULL OR u.gerencia_general = %s)
+        ORDER BY e.semana_inicio DESC
+    """
+    cursor.execute(query, (usr['unidad_administrativa'], usr['gerencia_general']))
+    filas = cursor.fetchall()
+    semanas = [{"inicio": f['semana_inicio'].strftime('%Y-%m-%d'), "fin": f['semana_fin'].strftime('%Y-%m-%d')} for f in filas]
+    return {"success": True, "semanas": semanas}
+
+@app.get("/api/unidad/historico-semana/{username}")
+def historico_semana(username: str, inicio: str, fin: str, db = Depends(get_db)):
+    """ Devuelve la matriz completa de una semana pasada (Modo Solo Lectura) """
+    cursor = db.cursor()
+    cursor.execute("SELECT rol, unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (username,))
+    usr = cursor.fetchone()
+    
+    query_emp = """
+        SELECT e.p00, e.nombres_apellidos, e.cedula, e.unidad_administrativa, e.gerencia_general, a.fecha, a.estatus, a.motivo
+        FROM empleados_maestro e
+        LEFT JOIN asistencia_diaria a ON e.p00 = a.p00 AND a.fecha BETWEEN %s AND %s
+        WHERE e.estatus = 'Activo'
+    """
+    params = [inicio, fin]
+    
+    if usr['rol'] == 'Reportador':
+        query_emp += " AND e.p00 IN (SELECT p00 FROM plantilla_local WHERE username = %s)"
+        params.append(username)
+    else:
+        if usr['unidad_administrativa']:
+            query_emp += " AND e.unidad_administrativa = %s"
+            params.append(usr['unidad_administrativa'])
+        if usr['gerencia_general']:
+            query_emp += " AND e.gerencia_general = %s"
+            params.append(usr['gerencia_general'])
+        
+    query_emp += " ORDER BY e.gerencia_general ASC, e.nombres_apellidos ASC, a.fecha ASC"
+    
+    cursor.execute(query_emp, params)
+    registros = cursor.fetchall()
+    
+    empleados_dict = {}
+    for reg in registros:
+        p00 = reg['p00']
+        if p00 not in empleados_dict:
+            empleados_dict[p00] = {
+                "p00": p00, "nombres_apellidos": reg['nombres_apellidos'], 
+                "unidad": reg['unidad_administrativa'], "gerencia": reg['gerencia_general'], 
+                "asistencia": {}
+            }
+        if reg['fecha']: 
+            fecha_str = reg['fecha'].strftime('%Y-%m-%d')
+            empleados_dict[p00]["asistencia"][fecha_str] = {"estatus": reg['estatus'], "motivo": reg['motivo']}
+            
+    return {
+        "success": True, "fecha_inicio": inicio, "fecha_fin": fin,
+        "empleados": list(empleados_dict.values())
+    }
+
+# ==========================================
+# 6. MONITOREO RRHH Y REVERSO
+# ==========================================
 @app.post("/api/rrhh/reversar-cierre")
 def reversar_cierre(req: ReversarRequest, db = Depends(get_db)):
     """ Elimina el estatus de enviado a RRHH de una jurisdicción para permitirles editar nuevamente """
@@ -497,7 +586,6 @@ def reversar_cierre(req: ReversarRequest, db = Depends(get_db)):
     config = cursor.fetchone()
     if not config: raise HTTPException(status_code=400, detail="No hay semana activa.")
 
-    # Se busca qué usuarios de Cierre de Unidad pertenecen a esa Jurisdicción (VP o GG)
     query_users = """
         SELECT username FROM usuarios 
         WHERE rol = 'Cierre de Unidad' 
@@ -517,46 +605,6 @@ def reversar_cierre(req: ReversarRequest, db = Depends(get_db)):
         
     db.commit()
     return {"success": True, "mensaje": f"Sello de cierre roto. {req.jurisdiccion} puede editar nuevamente."}
-
-# ==========================================
-# 5. HISTÓRICO Y MONITOREO RRHH
-# ==========================================
-@app.get("/api/unidad/historico/{username}")
-def obtener_historico_unidad(username: str, db = Depends(get_db)):
-    cursor = db.cursor()
-    cursor.execute("SELECT rol, unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (username,))
-    usr = cursor.fetchone()
-    if not usr: raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    
-    query = """
-        SELECT a.fecha, e.p00, e.nombres_apellidos, e.unidad_administrativa, e.gerencia_general, a.estatus, a.motivo
-        FROM asistencia_diaria a
-        INNER JOIN empleados_maestro e ON a.p00 = e.p00
-        WHERE 1=1
-    """
-    params = []
-    
-    if usr['rol'] == 'Reportador':
-        query += " AND e.p00 IN (SELECT p00 FROM plantilla_local WHERE username = %s)"
-        params.append(username)
-    else:
-        if usr['unidad_administrativa']:
-            query += " AND e.unidad_administrativa = %s"
-            params.append(usr['unidad_administrativa'])
-        if usr['gerencia_general']:
-            query += " AND e.gerencia_general = %s"
-            params.append(usr['gerencia_general'])
-            
-    query += " ORDER BY a.fecha DESC, e.nombres_apellidos ASC"
-    
-    cursor.execute(query, params)
-    registros = cursor.fetchall()
-    
-    for r in registros:
-        r['fecha'] = r['fecha'].strftime('%d/%m/%Y')
-        if not r['motivo']: r['motivo'] = "-"
-        
-    return {"success": True, "historico": registros}
 
 @app.get("/api/rrhh/monitoreo-entregas")
 def monitoreo_entregas(db = Depends(get_db)):
@@ -594,14 +642,7 @@ def monitoreo_entregas(db = Depends(get_db)):
     """
     
     cursor.execute(query, (config['semana_inicio'], config['semana_fin']))
-    resultados = cursor.fetchall()
-            
-    return {
-        "semana_activa": True, 
-        "fecha_inicio": config['semana_inicio'].strftime('%d/%m/%Y'), 
-        "fecha_fin": config['semana_fin'].strftime('%d/%m/%Y'), 
-        "entregas": resultados
-    }
+    return {"semana_activa": True, "fecha_inicio": config['semana_inicio'].strftime('%d/%m/%Y'), "fecha_fin": config['semana_fin'].strftime('%d/%m/%Y'), "entregas": cursor.fetchall()}
 
 def generar_excel_agrupado(df_detalle, nombre_archivo):
     output = io.BytesIO()
@@ -637,31 +678,20 @@ def descargar_consolidado(db = Depends(get_db)):
     if not config: raise HTTPException(status_code=400, detail="No hay semana activa.")
 
     query_val = """
-        WITH emp_dias AS (
-            SELECT e.p00, COUNT(a.fecha) as dias_reportados
-            FROM empleados_maestro e
-            LEFT JOIN asistencia_diaria a ON e.p00 = a.p00 AND a.fecha BETWEEN %s AND %s
-            WHERE e.estatus = 'Activo'
-            GROUP BY e.p00
-        )
+        WITH emp_dias AS (SELECT e.p00, COUNT(a.fecha) as dias_reportados FROM empleados_maestro e LEFT JOIN asistencia_diaria a ON e.p00 = a.p00 AND a.fecha BETWEEN %s AND %s WHERE e.estatus = 'Activo' GROUP BY e.p00)
         SELECT COUNT(p00) as total, SUM(CASE WHEN dias_reportados >= 7 THEN 1 ELSE 0 END) as completados FROM emp_dias
     """
     cursor.execute(query_val, (config['semana_inicio'], config['semana_fin']))
     val_res = cursor.fetchone()
-    if not val_res or val_res['total'] == 0:
-        raise HTTPException(status_code=400, detail="No hay personal activo.")
-    if val_res['total'] > (val_res['completados'] or 0):
-        raise HTTPException(status_code=403, detail="Consolidado Bloqueado: Aún hay Unidades pendientes por certificar asistencia.")
+    if not val_res or val_res['total'] == 0: raise HTTPException(status_code=400, detail="No hay personal activo.")
+    if val_res['total'] > (val_res['completados'] or 0): raise HTTPException(status_code=403, detail="Consolidado Bloqueado: Aún hay Unidades pendientes por certificar asistencia.")
         
     cursor.execute("""
         SELECT a.fecha, e.p00, e.cedula, e.nombres_apellidos, e.unidad_administrativa, e.gerencia_general, a.estatus, a.motivo 
         FROM asistencia_diaria a INNER JOIN empleados_maestro e ON a.p00 = e.p00
         WHERE a.fecha BETWEEN %s AND %s ORDER BY e.unidad_administrativa ASC, e.gerencia_general ASC, e.p00 ASC, a.fecha ASC
     """, (config['semana_inicio'], config['semana_fin']))
-    
-    df_detalle = pd.DataFrame(cursor.fetchall())
-    nombre_archivo = f"Nomina_Consolidada_{config['semana_inicio']}"
-    return generar_excel_agrupado(df_detalle, nombre_archivo)
+    return generar_excel_agrupado(pd.DataFrame(cursor.fetchall()), f"Nomina_Consolidada_{config['semana_inicio']}")
 
 @app.get("/api/rrhh/descargar-jurisdiccion/{jurisdiccion}")
 def descargar_jurisdiccion(jurisdiccion: str, db = Depends(get_db)):
@@ -671,36 +701,22 @@ def descargar_jurisdiccion(jurisdiccion: str, db = Depends(get_db)):
     if not config: raise HTTPException(status_code=400, detail="No hay semana activa.")
 
     query_val = """
-        WITH emp_dias AS (
-            SELECT e.p00, COUNT(a.fecha) as dias_reportados
-            FROM empleados_maestro e
-            LEFT JOIN asistencia_diaria a ON e.p00 = a.p00 AND a.fecha BETWEEN %s AND %s
-            WHERE e.estatus = 'Activo'
-            AND (CASE WHEN e.unidad_administrativa = 'Presidencia' THEN e.gerencia_general ELSE e.unidad_administrativa END) = %s
-            GROUP BY e.p00
-        )
+        WITH emp_dias AS (SELECT e.p00, COUNT(a.fecha) as dias_reportados FROM empleados_maestro e LEFT JOIN asistencia_diaria a ON e.p00 = a.p00 AND a.fecha BETWEEN %s AND %s WHERE e.estatus = 'Activo' AND (CASE WHEN e.unidad_administrativa = 'Presidencia' THEN e.gerencia_general ELSE e.unidad_administrativa END) = %s GROUP BY e.p00)
         SELECT COUNT(p00) as total, SUM(CASE WHEN dias_reportados >= 7 THEN 1 ELSE 0 END) as completados FROM emp_dias
     """
     cursor.execute(query_val, (config['semana_inicio'], config['semana_fin'], jurisdiccion))
     val_res = cursor.fetchone()
-    if not val_res or val_res['total'] == 0:
-        raise HTTPException(status_code=400, detail="Esta jurisdicción no tiene personal adscrito.")
-    if val_res['total'] > (val_res['completados'] or 0):
-        raise HTTPException(status_code=403, detail="Bloqueado: Esta jurisdicción aún no está certificada al 100%.")
+    if not val_res or val_res['total'] == 0: raise HTTPException(status_code=400, detail="Esta jurisdicción no tiene personal adscrito.")
+    if val_res['total'] > (val_res['completados'] or 0): raise HTTPException(status_code=403, detail="Bloqueado: Esta jurisdicción aún no está certificada al 100%.")
         
-    query = """
+    cursor.execute("""
         SELECT a.fecha, e.p00, e.cedula, e.nombres_apellidos, e.unidad_administrativa, e.gerencia_general, a.estatus, a.motivo 
         FROM asistencia_diaria a INNER JOIN empleados_maestro e ON a.p00 = e.p00
-        WHERE a.fecha BETWEEN %s AND %s 
-        AND (CASE WHEN e.unidad_administrativa = 'Presidencia' THEN e.gerencia_general ELSE e.unidad_administrativa END) = %s
+        WHERE a.fecha BETWEEN %s AND %s AND (CASE WHEN e.unidad_administrativa = 'Presidencia' THEN e.gerencia_general ELSE e.unidad_administrativa END) = %s
         ORDER BY e.unidad_administrativa ASC, e.gerencia_general ASC, e.p00 ASC, a.fecha ASC
-    """
-    cursor.execute(query, (config['semana_inicio'], config['semana_fin'], jurisdiccion))
-    
-    df_detalle = pd.DataFrame(cursor.fetchall())
+    """, (config['semana_inicio'], config['semana_fin'], jurisdiccion))
     safe_name = "".join([c for c in jurisdiccion if c.isalpha() or c.isdigit() or c==' ']).rstrip()
-    nombre_archivo = f"Nomina_{safe_name}"
-    return generar_excel_agrupado(df_detalle, nombre_archivo)
+    return generar_excel_agrupado(pd.DataFrame(cursor.fetchall()), f"Nomina_{safe_name}")
 
 @app.get("/")
 @app.get("/index.html")
