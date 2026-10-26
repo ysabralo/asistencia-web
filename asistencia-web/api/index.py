@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title="Asistencia Movilnet ERP v6.4")
+app = FastAPI(title="Asistencia Movilnet ERP v6.5")
 
 app.add_middleware(
     CORSMiddleware,
@@ -73,21 +73,11 @@ def is_jurisdiction_locked(cursor, username, semana_ini, semana_fin):
     cursor.execute("SELECT rol, unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (username,))
     usr = cursor.fetchone()
     if not usr or usr['rol'] == 'Recursos Humanos': return False
-    
     query = """
-        SELECT 1 FROM estado_entregas e
-        JOIN usuarios u ON e.unidad_nombre = u.username
-        WHERE e.semana_inicio = %s AND e.semana_fin = %s
-        AND u.unidad_administrativa = %s
+        SELECT 1 FROM estado_entregas e JOIN usuarios u ON e.unidad_nombre = u.username
+        WHERE e.semana_inicio = %s AND e.semana_fin = %s AND u.unidad_administrativa = %s AND (u.gerencia_general = '' OR u.gerencia_general IS NULL OR u.gerencia_general = %s)
     """
-    params = [semana_ini, semana_fin, usr['unidad_administrativa']]
-    if usr['gerencia_general']:
-        query += " AND u.gerencia_general = %s"
-        params.append(usr['gerencia_general'])
-    else:
-        query += " AND (u.gerencia_general = '' OR u.gerencia_general IS NULL)"
-        
-    cursor.execute(query, params)
+    cursor.execute(query, (semana_ini, semana_fin, usr['unidad_administrativa'], usr['gerencia_general']))
     return bool(cursor.fetchone())
 
 # ==========================================
@@ -123,8 +113,7 @@ def crear_usuario(req: UsuarioRequest, db = Depends(get_db)):
         db.commit()
         return {"success": True, "mensaje": "Usuario creado exitosamente con su jurisdicción."}
     except psycopg.errors.UniqueViolation:
-        db.rollback()
-        raise HTTPException(status_code=400, detail="El usuario ya existe")
+        db.rollback(); raise HTTPException(status_code=400, detail="El usuario ya existe")
 
 @app.delete("/api/rrhh/usuarios/{username}")
 def eliminar_usuario(username: str, db = Depends(get_db)):
@@ -143,8 +132,7 @@ async def cargar_organizacion(file: UploadFile = File(...), db = Depends(get_db)
     try:
         contents = await file.read()
         df = pd.read_excel(io.BytesIO(contents))
-        if 'Unidad_Administrativa' not in df.columns or 'Gerencia_General' not in df.columns:
-            raise HTTPException(status_code=400, detail="Faltan columnas requeridas.")
+        if 'Unidad_Administrativa' not in df.columns or 'Gerencia_General' not in df.columns: raise HTTPException(status_code=400, detail="Faltan columnas requeridas.")
         cargas = 0
         for _, fila in df.iterrows():
             ua = str(fila['Unidad_Administrativa']).strip(); gg = str(fila['Gerencia_General']).strip()
@@ -173,6 +161,17 @@ def abrir_semana(req: SemanaRequest, db = Depends(get_db)):
     cursor.execute("DELETE FROM configuracion_sistema")
     cursor.execute("INSERT INTO configuracion_sistema (id, semana_inicio, semana_fin, estatus) VALUES (1, %s, %s, 'Abierta')", (req.fecha_inicio, req.fecha_fin))
     
+    # 1. Limpieza automática de personal transferido en semanas anteriores
+    cursor.execute("""
+        DELETE FROM plantilla_local pl USING usuarios u, empleados_maestro e
+        WHERE pl.username = u.username AND pl.p00 = e.p00 AND (u.unidad_administrativa != '' AND e.unidad_administrativa != u.unidad_administrativa)
+    """)
+    cursor.execute("""
+        DELETE FROM plantilla_local pl USING usuarios u, empleados_maestro e
+        WHERE pl.username = u.username AND pl.p00 = e.p00 AND (u.gerencia_general != '' AND e.gerencia_general != u.gerencia_general)
+    """)
+
+    # 2. Inyección de absentismos
     cursor.execute("SELECT p00, tipo_ausentismo, fecha_inicio, fecha_fin FROM ausentismos_rrhh")
     absentismos = cursor.fetchall()
     
@@ -195,7 +194,7 @@ def abrir_semana(req: SemanaRequest, db = Depends(get_db)):
                 cargas += 1
                 
     db.commit()
-    return {"success": True, "mensaje": f"Semana aperturada con éxito.\nSe inyectaron {cargas} días de absentismos previos a las planillas."}
+    return {"success": True, "mensaje": f"Semana aperturada con éxito y limpieza ejecutada.\nSe inyectaron {cargas} días de absentismos previos a las planillas."}
 
 @app.post("/api/rrhh/absentismos")
 async def cargar_absentismos(file: UploadFile = File(...), db = Depends(get_db)):
@@ -260,7 +259,6 @@ def rrhh_egreso(req: EgresoRequest, db = Depends(get_db)):
     if not emp: raise HTTPException(status_code=404, detail="El P00 no existe.")
 
     cursor.execute("UPDATE empleados_maestro SET estatus = 'Inactivo' WHERE p00 = %s", (req.p00,))
-    cursor.execute("DELETE FROM plantilla_local WHERE p00 = %s", (req.p00,))
 
     cursor.execute("SELECT semana_inicio, semana_fin, estatus FROM configuracion_sistema WHERE id = 1")
     config = cursor.fetchone()
@@ -268,20 +266,13 @@ def rrhh_egreso(req: EgresoRequest, db = Depends(get_db)):
     inyectados = 0
     if config and config['estatus'] == 'Abierta':
         d_inicio_egreso = pd.to_datetime(req.fecha_egreso) + timedelta(days=1)
-        sem_ini = pd.to_datetime(config['semana_inicio'])
-        sem_fin = pd.to_datetime(config['semana_fin'])
-        
-        start_date = max(d_inicio_egreso, sem_ini)
-        end_date = sem_fin
+        sem_ini = pd.to_datetime(config['semana_inicio']); sem_fin = pd.to_datetime(config['semana_fin'])
+        start_date = max(d_inicio_egreso, sem_ini); end_date = sem_fin
         
         if start_date <= end_date:
             curr_date = start_date
             while curr_date <= end_date:
-                cursor.execute("""
-                    INSERT INTO asistencia_diaria (p00, fecha, estatus, motivo) 
-                    VALUES (%s, %s, %s, 'Egreso Procesado por RRHH')
-                    ON CONFLICT (p00, fecha) DO UPDATE SET estatus = EXCLUDED.estatus, motivo = EXCLUDED.motivo
-                """, (req.p00, curr_date.strftime('%Y-%m-%d'), "Egresado"))
+                cursor.execute("INSERT INTO asistencia_diaria (p00, fecha, estatus, motivo) VALUES (%s, %s, %s, 'Egreso Procesado por RRHH') ON CONFLICT (p00, fecha) DO UPDATE SET estatus = EXCLUDED.estatus, motivo = EXCLUDED.motivo", (req.p00, curr_date.strftime('%Y-%m-%d'), "Egresado"))
                 curr_date += timedelta(days=1)
                 inyectados += 1
                 
@@ -303,6 +294,7 @@ def rrhh_transferencia(req: TransferenciaRequest, db = Depends(get_db)):
 
     cursor.execute("INSERT INTO organizacion (unidad_administrativa, gerencia_general) VALUES (%s, %s) ON CONFLICT DO NOTHING", (req.unidad_administrativa, req.gerencia_general))
     
+    # ATENCIÓN: NO se hace el DELETE de plantilla_local aquí. Esto permite que el Reportador antiguo lo siga viendo en la semana activa.
     cursor.execute("""
         UPDATE empleados_maestro SET 
         unidad_anterior = %s, gerencia_anterior = %s, reportador_anterior = %s, fecha_transferencia = %s,
@@ -310,9 +302,8 @@ def rrhh_transferencia(req: TransferenciaRequest, db = Depends(get_db)):
         WHERE p00 = %s
     """, (emp['unidad_administrativa'], emp['gerencia_general'], reportador_old, req.fecha_efectiva, req.unidad_administrativa, req.gerencia_general, req.p00))
     
-    cursor.execute("DELETE FROM plantilla_local WHERE p00 = %s", (req.p00,)) 
     db.commit()
-    return {"success": True, "mensaje": f"Trabajador {emp['nombres_apellidos']} transferido exitosamente.\nLa nueva unidad ya puede vincularlo a su plantilla."}
+    return {"success": True, "mensaje": f"Trabajador {emp['nombres_apellidos']} transferido exitosamente.\nLa nueva unidad ya puede vincularlo, y la unidad antigua no lo perderá hasta el cierre de semana."}
 
 # ==========================================
 # 3. GESTIÓN AUTÓNOMA DE PERSONAL (UNIDADES)
@@ -320,20 +311,42 @@ def rrhh_transferencia(req: TransferenciaRequest, db = Depends(get_db)):
 @app.post("/api/unidad/agregar-empleado")
 def agregar_empleado_unidad(req: EmpleadoUnidadRequest, db = Depends(get_db)):
     cursor = db.cursor()
-    cursor.execute("SELECT username FROM plantilla_local WHERE p00 = %s", (req.p00,))
-    reclamado_por = cursor.fetchone()
-    if reclamado_por and reclamado_por['username'] != req.username: raise HTTPException(status_code=400, detail=f"Bloqueado: El P00 ya es reportado por '{reclamado_por['username']}'.")
-
+    cursor.execute("SELECT semana_inicio, semana_fin, estatus FROM configuracion_sistema WHERE id = 1")
+    config = cursor.fetchone()
+    
     cursor.execute("SELECT unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (req.username,))
     usr = cursor.fetchone()
+    if not usr: raise HTTPException(status_code=404, detail="Usuario no encontrado")
     
-    cursor.execute("SELECT unidad_administrativa, gerencia_general, nombres_apellidos, estatus FROM empleados_maestro WHERE p00 = %s", (req.p00,))
+    cursor.execute("SELECT unidad_administrativa, gerencia_general, nombres_apellidos, estatus, fecha_transferencia, unidad_anterior, gerencia_anterior FROM empleados_maestro WHERE p00 = %s", (req.p00,))
     emp = cursor.fetchone()
     if not emp: raise HTTPException(status_code=400, detail=f"El P00 {req.p00} no existe en RRHH.")
     if emp['estatus'] == 'Inactivo': raise HTTPException(status_code=400, detail=f"El trabajador se encuentra Egresado.")
-        
-    if usr['unidad_administrativa'] and emp['unidad_administrativa'] != usr['unidad_administrativa']: raise HTTPException(status_code=400, detail=f"Bloqueado: Pertenece a la Unidad '{emp['unidad_administrativa']}'.")
-    if usr['gerencia_general'] and emp['gerencia_general'] != usr['gerencia_general']: raise HTTPException(status_code=400, detail=f"Bloqueado: Pertenece a la Gerencia '{emp['gerencia_general']}'.")
+    
+    # Evaluar Transferencia en caliente (Para saltarse el candado de estructura)
+    transferido_esta_semana = False
+    if config and config['estatus'] == 'Abierta' and emp['fecha_transferencia']:
+        if config['semana_inicio'] <= emp['fecha_transferencia'].strftime('%Y-%m-%d') <= config['semana_fin']:
+            transferido_esta_semana = True
+
+    es_jefe_anterior = transferido_esta_semana and usr['unidad_administrativa'] == emp['unidad_anterior']
+    if usr['gerencia_general'] and emp['gerencia_anterior'] != usr['gerencia_general']: es_jefe_anterior = False
+
+    es_jefe_nuevo = usr['unidad_administrativa'] == emp['unidad_administrativa']
+    if usr['gerencia_general'] and emp['gerencia_general'] != usr['gerencia_general']: es_jefe_nuevo = False
+
+    # Evaluar Candado de Plantilla Local
+    cursor.execute("SELECT username FROM plantilla_local WHERE p00 = %s", (req.p00,))
+    reclamados = cursor.fetchall()
+    usernames = [r['username'] for r in reclamados]
+    
+    if usernames and req.username not in usernames:
+        if not transferido_esta_semana:
+            raise HTTPException(status_code=400, detail=f"Bloqueado: El P00 ya es reportado por '{usernames[0]}'.")
+
+    # Evaluar Candado Estructural
+    if not es_jefe_anterior and not es_jefe_nuevo:
+        raise HTTPException(status_code=400, detail=f"Bloqueado: Pertenece a la Unidad '{emp['unidad_administrativa']}'.")
 
     try:
         cursor.execute("INSERT INTO plantilla_local (username, p00) VALUES (%s, %s) ON CONFLICT DO NOTHING", (req.username, req.p00))
@@ -345,6 +358,9 @@ def agregar_empleado_unidad(req: EmpleadoUnidadRequest, db = Depends(get_db)):
 @app.post("/api/unidad/cargar-empleados-excel")
 async def cargar_empleados_excel_unidad(username: str = Form(...), file: UploadFile = File(...), db = Depends(get_db)):
     cursor = db.cursor()
+    cursor.execute("SELECT semana_inicio, semana_fin, estatus FROM configuracion_sistema WHERE id = 1")
+    config = cursor.fetchone()
+    
     cursor.execute("SELECT unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (username,))
     usr = cursor.fetchone()
     
@@ -357,17 +373,30 @@ async def cargar_empleados_excel_unidad(username: str = Form(...), file: UploadF
         for _, fila in df.iterrows():
             p00 = str(fila['P00']).strip()
             if p00 and p00 != 'nan':
-                cursor.execute("SELECT username FROM plantilla_local WHERE p00 = %s", (p00,))
-                reclamado_por = cursor.fetchone()
-                if reclamado_por and reclamado_por['username'] != username: errores.append(f"{p00} (Ya reportado)"); continue
-
-                cursor.execute("SELECT unidad_administrativa, gerencia_general, estatus FROM empleados_maestro WHERE p00 = %s", (p00,))
+                cursor.execute("SELECT unidad_administrativa, gerencia_general, estatus, fecha_transferencia, unidad_anterior, gerencia_anterior FROM empleados_maestro WHERE p00 = %s", (p00,))
                 emp = cursor.fetchone()
-                
                 if not emp: errores.append(f"{p00} (No Existe)"); continue
                 if emp['estatus'] == 'Inactivo': errores.append(f"{p00} (Egresado)"); continue
-                if usr['unidad_administrativa'] and emp['unidad_administrativa'] != usr['unidad_administrativa']: errores.append(f"{p00} (Otra VP)"); continue
-                if usr['gerencia_general'] and emp['gerencia_general'] != usr['gerencia_general']: errores.append(f"{p00} (Otra GG)"); continue
+                
+                transferido_esta_semana = False
+                if config and config['estatus'] == 'Abierta' and emp['fecha_transferencia']:
+                    if config['semana_inicio'] <= emp['fecha_transferencia'].strftime('%Y-%m-%d') <= config['semana_fin']:
+                        transferido_esta_semana = True
+                
+                es_jefe_anterior = transferido_esta_semana and usr['unidad_administrativa'] == emp['unidad_anterior']
+                if usr['gerencia_general'] and emp['gerencia_anterior'] != usr['gerencia_general']: es_jefe_anterior = False
+                
+                es_jefe_nuevo = usr['unidad_administrativa'] == emp['unidad_administrativa']
+                if usr['gerencia_general'] and emp['gerencia_general'] != usr['gerencia_general']: es_jefe_nuevo = False
+
+                cursor.execute("SELECT username FROM plantilla_local WHERE p00 = %s", (p00,))
+                reclamados = cursor.fetchall()
+                usernames = [r['username'] for r in reclamados]
+                if usernames and username not in usernames and not transferido_esta_semana:
+                    errores.append(f"{p00} (Ya reportado)"); continue
+                    
+                if not es_jefe_anterior and not es_jefe_nuevo:
+                    errores.append(f"{p00} (Fuera de jurisdicción)"); continue
                     
                 cursor.execute("INSERT INTO plantilla_local (username, p00) VALUES (%s, %s) ON CONFLICT DO NOTHING", (username, p00))
                 cargas += 1
@@ -377,8 +406,7 @@ async def cargar_empleados_excel_unidad(username: str = Form(...), file: UploadF
         if errores: msg += f"\nRechazados o Duplicados: {len(errores)}"
         return {"success": True, "mensaje": msg}
     except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=400, detail=str(e))
+        db.rollback(); raise HTTPException(status_code=400, detail=str(e))
 
 @app.delete("/api/unidad/remover-empleado/{username}/{p00}")
 def remover_empleado_unidad(username: str, p00: str, db = Depends(get_db)):
@@ -419,29 +447,15 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
     params = [semana_ini, semana_fin, semana_ini, semana_fin]
     
     if usr['rol'] == 'Reportador':
-        query_emp += " AND (e.p00 IN (SELECT p00 FROM plantilla_local WHERE username = %s) OR (e.reportador_anterior = %s AND e.fecha_transferencia BETWEEN %s AND %s))"
-        params.extend([username, username, semana_ini, semana_fin])
+        query_emp += " AND e.p00 IN (SELECT p00 FROM plantilla_local WHERE username = %s)"
+        params.append(username)
     else:
-        # Cierre de Unidad: Traer la unidad actual, las transferencias de salida y la plantilla explícita
-        conds = []
-        p = []
         if usr['unidad_administrativa']:
-            if usr['gerencia_general']:
-                conds.append("(e.unidad_administrativa = %s AND e.gerencia_general = %s)")
-                p.extend([usr['unidad_administrativa'], usr['gerencia_general']])
-                conds.append("(e.unidad_anterior = %s AND e.gerencia_anterior = %s AND e.fecha_transferencia BETWEEN %s AND %s)")
-                p.extend([usr['unidad_administrativa'], usr['gerencia_general'], semana_ini, semana_fin])
-            else:
-                conds.append("(e.unidad_administrativa = %s)")
-                p.append(usr['unidad_administrativa'])
-                conds.append("(e.unidad_anterior = %s AND e.fecha_transferencia BETWEEN %s AND %s)")
-                p.extend([usr['unidad_administrativa'], semana_ini, semana_fin])
-            
-            conds.append("(e.p00 IN (SELECT p00 FROM plantilla_local WHERE username = %s))")
-            p.append(username)
-            
-            query_emp += " AND (" + " OR ".join(conds) + ")"
-            params.extend(p)
+            query_emp += " AND e.unidad_administrativa = %s"
+            params.append(usr['unidad_administrativa'])
+        if usr['gerencia_general']:
+            query_emp += " AND e.gerencia_general = %s"
+            params.append(usr['gerencia_general'])
         
     query_emp += " ORDER BY e.gerencia_general ASC, e.nombres_apellidos ASC, a.fecha ASC"
     
@@ -456,15 +470,21 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
     for reg in registros:
         p00 = reg['p00']
         if p00 not in empleados_dict:
-            es_antiguo = False
-            es_nuevo = False
+            # PIVOTE MATEMÁTICO DE FECHAS PARA TRANSFERENCIAS
+            transferido_esta_semana = False
+            if reg['fecha_transferencia']:
+                if semana_ini <= pd.to_datetime(reg['fecha_transferencia']).strftime('%Y-%m-%d') <= semana_fin.strftime('%Y-%m-%d'):
+                    transferido_esta_semana = True
+
+            es_antiguo = False; es_nuevo = False
             
-            if usr['rol'] == 'Reportador':
-                if reg['reportador_anterior'] == username and reg['fecha_transferencia']: es_antiguo = True
-                if p00 in mis_p00s: es_nuevo = True
+            if transferido_esta_semana:
+                if usr['unidad_administrativa'] == reg['unidad_anterior']:
+                    if not usr['gerencia_general'] or usr['gerencia_general'] == reg['gerencia_anterior']: es_antiguo = True
+                if usr['unidad_administrativa'] == reg['unidad_administrativa']:
+                    if not usr['gerencia_general'] or usr['gerencia_general'] == reg['gerencia_general']: es_nuevo = True
             else:
-                if reg['unidad_anterior'] == usr['unidad_administrativa'] and reg['fecha_transferencia']: es_antiguo = True
-                if reg['unidad_administrativa'] == usr['unidad_administrativa']: es_nuevo = True
+                es_nuevo = True
 
             edit_start = semana_ini.strftime('%Y-%m-%d')
             edit_end = semana_fin.strftime('%Y-%m-%d')
@@ -534,6 +554,7 @@ def enviar_a_rrhh(req: EnvioRRHHRequest, db = Depends(get_db)):
     cursor = db.cursor()
     cursor.execute("SELECT semana_inicio, semana_fin FROM configuracion_sistema WHERE id = 1")
     config = cursor.fetchone()
+    if not config: raise HTTPException(status_code=400, detail="No hay semana activa.")
     semana_ini, semana_fin = config['semana_inicio'], config['semana_fin']
     
     cursor.execute("INSERT INTO estado_entregas (unidad_nombre, semana_inicio, semana_fin, estatus_entrega, fecha_envio) VALUES (%s, %s, %s, 'Enviado a RRHH', NOW()) ON CONFLICT (unidad_nombre, semana_inicio, semana_fin) DO UPDATE SET estatus_entrega = 'Enviado a RRHH', fecha_envio = NOW()", (req.unidad_nombre, semana_ini, semana_fin))
@@ -617,7 +638,7 @@ def reversar_cierre(req: ReversarRequest, db = Depends(get_db)):
 
     cursor.execute("SELECT username FROM usuarios WHERE rol = 'Cierre de Unidad' AND (CASE WHEN unidad_administrativa = 'Presidencia' THEN gerencia_general ELSE unidad_administrativa END) = %s", (req.jurisdiccion,))
     users = cursor.fetchall()
-    if not users: raise HTTPException(status_code=404, detail="No se encontraron Jefaturas.")
+    if not users: raise HTTPException(status_code=404, detail="No se encontraron Jefaturas para esta Jurisdicción.")
         
     for u in users:
         cursor.execute("DELETE FROM estado_entregas WHERE unidad_nombre = %s AND semana_inicio = %s AND semana_fin = %s", (u['username'], config['semana_inicio'], config['semana_fin']))
