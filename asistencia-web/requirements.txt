@@ -1,7 +1,6 @@
 fastapi
 uvicorn
 psycopg[binary]
-pandas
-openpyxl
+pydantic
 python-multipart
-msoffcrypto-tool
+openpyxl
