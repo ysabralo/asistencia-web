@@ -13,7 +13,7 @@ import openpyxl
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title="Asistencia Movilnet ERP v6.9")
+app = FastAPI(title="Asistencia Movilnet ERP v7.1")
 
 app.add_middleware(
     CORSMiddleware,
@@ -386,7 +386,7 @@ def rrhh_transferencia(req: TransferenciaRequest, db = Depends(get_db)):
     """, (emp['unidad_administrativa'], emp['gerencia_general'], reportador_old, req.fecha_efectiva, req.unidad_administrativa, req.gerencia_general, req.p00))
     
     db.commit()
-    return {"success": True, "mensaje": f"Trabajador {emp['nombres_apellidos']} transferido exitosamente.\nLa nueva unidad ya puede vincularlo, y la unidad antigua no lo perderá hasta el cierre."}
+    return {"success": True, "mensaje": f"Trabajador {emp['nombres_apellidos']} transferido exitosamente.\nLa nueva unidad ya puede vincularlo."}
 
 # ==========================================
 # 4. GESTIÓN AUTÓNOMA DE PERSONAL (UNIDADES)
@@ -729,7 +729,8 @@ def reversar_cierre(req: ReversarRequest, db = Depends(get_db)):
     cursor.execute("SELECT semana_inicio, semana_fin FROM configuracion_sistema WHERE id = 1")
     config = cursor.fetchone()
     if not config: raise HTTPException(status_code=400, detail="No hay semana activa.")
-    sem_ini, sem_fin = str(config['semana_inicio'])[:10], str(config['semana_fin'])[:10]
+    sem_ini = str(config['semana_inicio'])[:10]
+    sem_fin = str(config['semana_fin'])[:10]
 
     cursor.execute("SELECT username FROM usuarios WHERE rol = 'Cierre de Unidad' AND (CASE WHEN unidad_administrativa = 'Presidencia' THEN gerencia_general ELSE unidad_administrativa END) = %s", (req.jurisdiccion,))
     users = cursor.fetchall()
@@ -751,30 +752,48 @@ def monitoreo_entregas(db = Depends(get_db)):
     sem_fin = str(config['semana_fin'])[:10]
 
     query = """
-        WITH jefaturas AS (
-            SELECT username, CASE WHEN unidad_administrativa = 'Presidencia' THEN gerencia_general ELSE unidad_administrativa END as jurisdiccion
-            FROM usuarios WHERE rol = 'Cierre de Unidad'
+        WITH emp_dias AS (
+            SELECT 
+                e.p00, 
+                CASE WHEN e.unidad_administrativa = 'Presidencia' THEN e.gerencia_general ELSE e.unidad_administrativa END as jurisdiccion,
+                COUNT(a.fecha) as dias_reportados
+            FROM empleados_maestro e 
+            LEFT JOIN asistencia_diaria a ON e.p00 = a.p00 AND a.fecha BETWEEN %s AND %s
+            WHERE (e.estatus = 'Activo' OR e.p00 IN (SELECT p00 FROM asistencia_diaria WHERE fecha BETWEEN %s AND %s))
+            GROUP BY e.p00, e.unidad_administrativa, e.gerencia_general
         ),
-        entregas AS (
-            SELECT unidad_nombre, estatus_entrega FROM estado_entregas WHERE semana_inicio = %s AND semana_fin = %s
+        agrupado AS (
+            SELECT 
+                jurisdiccion,
+                COUNT(p00) as total_empleados,
+                SUM(CASE WHEN dias_reportados >= 7 THEN 1 ELSE 0 END) as completados 
+            FROM emp_dias 
+            GROUP BY jurisdiccion
         ),
-        plantilla AS (
-            SELECT username, COUNT(p00) as total_empleados FROM plantilla_local GROUP BY username
+        certificaciones AS (
+            SELECT 
+                CASE WHEN u.unidad_administrativa = 'Presidencia' THEN u.gerencia_general ELSE u.unidad_administrativa END as jurisdiccion,
+                MAX(CASE WHEN e.estatus_entrega = 'Enviado a RRHH' THEN 1 ELSE 0 END) as esta_certificado
+            FROM usuarios u 
+            JOIN estado_entregas e ON u.username = e.unidad_nombre 
+            WHERE u.rol = 'Cierre de Unidad' AND e.semana_inicio = %s AND e.semana_fin = %s
+            GROUP BY 1
         )
         SELECT 
-            j.jurisdiccion,
-            SUM(COALESCE(p.total_empleados, 0)) as total_empleados,
-            MAX(CASE WHEN e.estatus_entrega = 'Enviado a RRHH' THEN 1 ELSE 0 END) as certificado
-        FROM jefaturas j
-        LEFT JOIN entregas e ON j.username = e.unidad_nombre
-        LEFT JOIN plantilla p ON j.username = p.username
-        GROUP BY j.jurisdiccion
-        ORDER BY j.jurisdiccion ASC
+            a.jurisdiccion, 
+            a.total_empleados, 
+            a.completados, 
+            COALESCE(c.esta_certificado, 0) as certificado
+        FROM agrupado a 
+        LEFT JOIN certificaciones c ON a.jurisdiccion = c.jurisdiccion 
+        ORDER BY a.jurisdiccion ASC
     """
-    cursor.execute(query, (sem_ini, sem_fin))
+    cursor.execute(query, (sem_ini, sem_fin, sem_ini, sem_fin, sem_ini, sem_fin))
     entregas = cursor.fetchall()
+
     display_ini = parse_date(sem_ini).strftime('%d/%m/%Y')
     display_fin = parse_date(sem_fin).strftime('%d/%m/%Y')
+
     return {"semana_activa": True, "fecha_inicio": display_ini, "fecha_fin": display_fin, "entregas": entregas}
 
 def generar_excel_agrupado(df_detalle_records, nombre_archivo):
@@ -782,10 +801,12 @@ def generar_excel_agrupado(df_detalle_records, nombre_archivo):
     wb = openpyxl.Workbook()
     ws_det = wb.active
     ws_det.title = "Detalle_Asistencia"
+    
     ws_det.append(['Fecha', 'P00', 'Cédula', 'Nombres y Apellidos', 'Unidad Administrativa (VP)', 'Gerencia General', 'Estatus Asistencia', 'Motivo'])
     
     pagar_list = ["Asistencia Normal", "Vacaciones", "Dia Descanso Legal", "Dia Libre Compensatorio"]
     descontar_list = ["Teletrabajo", "Reposo", "Permiso otorgado", "Falta Injustificada", "Egresado"]
+    
     resumen = {}
     
     if not df_detalle_records:
@@ -793,20 +814,31 @@ def generar_excel_agrupado(df_detalle_records, nombre_archivo):
     else:
         for r in df_detalle_records:
             fecha_str = r['fecha'].strftime('%d/%m/%Y') if r.get('fecha') else ""
-            ws_det.append([fecha_str, r['p00'], r['cedula'], r['nombres_apellidos'], r['unidad_administrativa'], r['gerencia_general'], r['estatus'], r['motivo']])
+            ws_det.append([
+                fecha_str, r['p00'], r['cedula'], r['nombres_apellidos'], 
+                r['unidad_administrativa'], r['gerencia_general'], 
+                r['estatus'], r['motivo']
+            ])
+            
             key = (r['p00'], r['cedula'], r['nombres_apellidos'], r['unidad_administrativa'], r['gerencia_general'])
-            if key not in resumen: resumen[key] = {'pagar': 0, 'descontar': 0}
+            if key not in resumen:
+                resumen[key] = {'pagar': 0, 'descontar': 0}
+                
             est = r.get('estatus')
             if est in pagar_list: resumen[key]['pagar'] += 1
             if est in descontar_list: resumen[key]['descontar'] += 1
                 
     ws_res = wb.create_sheet(title="Resumen_Pago")
     ws_res.append(['P00', 'Cédula', 'Nombres y Apellidos', 'Unidad Administrativa (VP)', 'Gerencia General', 'Días a Pagar', 'Días a Descontar'])
-    if not df_detalle_records: ws_res.append(["No hay registros"])
+    
+    if not df_detalle_records:
+        ws_res.append(["No hay registros"])
     else:
-        for k, v in resumen.items(): ws_res.append([k[0], k[1], k[2], k[3], k[4], v['pagar'], v['descontar']])
+        for k, v in resumen.items():
+            ws_res.append([k[0], k[1], k[2], k[3], k[4], v['pagar'], v['descontar']])
             
-    wb.save(output); output.seek(0)
+    wb.save(output)
+    output.seek(0)
     headers = {'Content-Disposition': f'attachment; filename="{nombre_archivo}.xlsx"', 'Access-Control-Expose-Headers': 'Content-Disposition'}
     return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
@@ -820,9 +852,18 @@ def descargar_consolidado(db = Depends(get_db)):
     sem_fin = str(config['semana_fin'])[:10]
 
     query_val = """
-        SELECT u.username FROM usuarios u
-        LEFT JOIN estado_entregas e ON u.username = e.unidad_nombre AND e.semana_inicio = %s AND e.semana_fin = %s
-        WHERE u.rol = 'Cierre de Unidad' AND e.estatus_entrega IS NULL
+        WITH agrupado AS (
+            SELECT CASE WHEN unidad_administrativa = 'Presidencia' THEN gerencia_general ELSE unidad_administrativa END as jurisdiccion 
+            FROM empleados_maestro WHERE estatus = 'Activo' GROUP BY 1
+        ),
+        certificaciones AS (
+            SELECT CASE WHEN u.unidad_administrativa = 'Presidencia' THEN u.gerencia_general ELSE u.unidad_administrativa END as jurisdiccion 
+            FROM usuarios u 
+            JOIN estado_entregas e ON u.username = e.unidad_nombre 
+            WHERE e.semana_inicio = %s AND e.semana_fin = %s 
+            GROUP BY 1
+        )
+        SELECT a.jurisdiccion FROM agrupado a LEFT JOIN certificaciones c ON a.jurisdiccion = c.jurisdiccion WHERE c.jurisdiccion IS NULL
     """
     cursor.execute(query_val, (sem_ini, sem_fin))
     if cursor.fetchall(): raise HTTPException(status_code=403, detail="Consolidado Bloqueado: Faltan Unidades por certificar asistencia.")
