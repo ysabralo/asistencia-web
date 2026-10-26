@@ -57,7 +57,7 @@
                 </div>
             </div>
 
-            <!-- CARTEL DE SEMANA CERRADA -->
+            <!-- CARTEL DE SEMANA CERRADA (BLOQUEO TOTAL EN CASCADA) -->
             <div id="panel-semana-cerrada" class="bg-white rounded-xl shadow-md p-10 text-center border border-green-200 hidden mt-6">
                 <div class="inline-block p-4 bg-green-50 rounded-full mb-4 shadow-sm border border-green-100"><i class="fa-solid fa-check-double text-5xl text-green-600"></i></div>
                 <h2 class="text-2xl font-bold text-gray-800 mb-2">Semana Certificada Exitosamente</h2>
@@ -176,7 +176,7 @@
             </div>
             
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- 1. APERTURAR SEMANA (NUEVO DISEÑO UI) -->
+                <!-- 1. APERTURAR SEMANA (NUEVO) -->
                 <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                     <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-calendar-plus text-blue-600 mr-2"></i>1. Aperturar Semana</h2>
                     <div class="space-y-3 mb-4">
@@ -189,24 +189,30 @@
                 <!-- 2. MOVIMIENTOS Y ABSENTISMOS -->
                 <div class="space-y-6">
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-                        <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-people-arrows text-blue-600 mr-2"></i>2. Movimientos de Personal</h2>
-                        <input type="file" id="file-movimientos" accept=".xlsx" class="block w-full text-sm text-gray-500 file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:font-semibold file:bg-gray-100 file:text-gray-700 mb-2 border border-gray-300"/>
-                        <div class="bg-blue-50 text-blue-800 text-[10px] p-2 rounded border border-blue-200 mb-3 font-medium">Cols: P00, Cedula, Nombres_Apellidos, Fecha_Ingreso, Unidad_Administrativa, Gerencia_General, <b>Accion</b> (Ingreso/Egreso/Transferencia)</div>
-                        <button onclick="cargarMovimientosRRHH()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 transition shadow">Procesar Movimientos</button>
+                        <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-users-gear text-blue-600 mr-2"></i>2. Movimientos de Personal</h2>
+                        <div class="flex gap-2 mb-4">
+                            <button onclick="document.getElementById('modal-movimientos').classList.remove('hidden')" class="w-full bg-blue-100 text-blue-700 py-2 rounded font-bold hover:bg-blue-200 text-xs border border-blue-200"><i class="fa-solid fa-user-edit mr-1"></i>Gestionar</button>
+                        </div>
                     </div>
 
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-                        <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-file-medical text-blue-600 mr-2"></i>3. Carga de Absentismos</h2>
+                        <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-file-medical text-blue-600 mr-2"></i>3. Cargar Absentismos</h2>
                         <input type="file" id="file-absentismos" accept=".xlsx" class="block w-full text-sm text-gray-500 file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:font-semibold file:bg-gray-100 file:text-gray-700 mb-2 border border-gray-300"/>
                         <div class="bg-purple-50 text-purple-800 text-[10px] p-2 rounded border border-purple-200 mb-3 font-medium">Cols: P00, Tipo_Ausentismo, Fecha_Inicio, Fecha_Fin</div>
                         <button onclick="cargarAbsentismosRRHH()" class="w-full bg-purple-600 text-white py-2 rounded-lg font-bold hover:bg-purple-700 transition shadow">Subir Absentismos</button>
                     </div>
                 </div>
 
-                <!-- 3. GESTIÓN DE USUARIOS Y ESTRUCTURA -->
+                <!-- 3. ESTRUCTURA Y USUARIOS -->
                 <div class="space-y-6">
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-                        <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-users-gear text-blue-600 mr-2"></i>4. Gestión de Usuarios</h2>
+                        <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-sitemap text-blue-600 mr-2"></i>4. Estructura Oficial</h2>
+                        <input type="file" id="file-estructura" accept=".xlsx" class="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:font-bold file:bg-gray-100 file:text-gray-700 mb-2 border border-gray-300"/>
+                        <button onclick="importarEstructuraRRHH()" class="w-full bg-blue-600 text-white py-1.5 rounded text-xs font-bold hover:bg-blue-700 transition shadow">Actualizar Estructura</button>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
+                        <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-key text-blue-600 mr-2"></i>5. Accesos</h2>
                         <form id="form-usuarios" onsubmit="crearUsuario(event)" class="space-y-3">
                             <div class="flex gap-2"><input type="text" id="usr_nombre" placeholder="Login" class="w-full p-2 text-xs bg-gray-50 border rounded" required><input type="password" id="usr_pass" placeholder="Pass" class="w-full p-2 text-xs bg-gray-50 border rounded" required></div>
                             <select id="usr_rol" class="w-full p-2 text-xs bg-gray-50 border rounded" required><option value="">-- Perfil --</option><option value="Recursos Humanos">RRHH</option><option value="Cierre de Unidad">Cierre de Unidad</option><option value="Reportador">Reportador</option></select>
@@ -217,12 +223,6 @@
                             <button type="submit" class="w-full bg-green-600 text-white py-2 rounded text-xs font-bold hover:bg-green-700 transition mt-1">Crear Acceso</button>
                         </form>
                         <div class="mt-4 max-h-[100px] overflow-y-auto border rounded bg-gray-50 p-2"><table class="w-full text-[10px] text-left"><tbody id="tabla-usuarios-body"></tbody></table></div>
-                    </div>
-
-                    <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-                        <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-sitemap text-blue-600 mr-2"></i>5. Estructura Organizativa</h2>
-                        <input type="file" id="file-estructura" accept=".xlsx" class="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:font-bold file:bg-gray-100 file:text-gray-700 mb-2 border border-gray-300"/>
-                        <button onclick="importarEstructuraRRHH()" class="w-full bg-blue-600 text-white py-1.5 rounded text-xs font-bold hover:bg-blue-700 transition shadow">Cargar Estructura</button>
                     </div>
                 </div>
 
@@ -254,7 +254,58 @@
         </div>
     </div>
 
-    <!-- MODALES (IGUAL QUE v5.6) -->
+    <!-- MODAL DE MOVIMIENTOS INDIVIDUALES (NUEVO) -->
+    <div id="modal-movimientos" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl">
+            <div class="flex justify-between items-center border-b pb-2 mb-4">
+                <h3 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-user-edit text-blue-600 mr-2"></i>Gestión de Movimientos</h3>
+                <button onclick="document.getElementById('modal-movimientos').classList.add('hidden')" class="text-gray-400 hover:text-red-500"><i class="fa-solid fa-times text-xl"></i></button>
+            </div>
+            
+            <div class="flex border-b border-gray-200 mb-4">
+                <button onclick="switchTabMov('ingreso')" id="tab-ingreso" class="py-2 px-4 text-sm font-bold text-blue-600 border-b-2 border-blue-600">Nuevo Ingreso</button>
+                <button onclick="switchTabMov('transferencia')" id="tab-transferencia" class="py-2 px-4 text-sm font-bold text-gray-500 hover:text-blue-600">Transferencia</button>
+                <button onclick="switchTabMov('egreso')" id="tab-egreso" class="py-2 px-4 text-sm font-bold text-gray-500 hover:text-blue-600">Egreso</button>
+            </div>
+
+            <form id="form-mov-ingreso" onsubmit="procesarIngreso(event)" class="space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div><label class="block text-xs font-bold text-gray-700">P00</label><input type="text" id="ing_p00" class="w-full p-2 border rounded text-sm outline-none" required></div>
+                    <div><label class="block text-xs font-bold text-gray-700">Cédula</label><input type="text" id="ing_cedula" class="w-full p-2 border rounded text-sm outline-none" required></div>
+                    <div class="col-span-2"><label class="block text-xs font-bold text-gray-700">Nombres y Apellidos</label><input type="text" id="ing_nombre" class="w-full p-2 border rounded text-sm outline-none" required></div>
+                    <div><label class="block text-xs font-bold text-gray-700">Fecha Ingreso</label><input type="date" id="ing_fecha" class="w-full p-2 border rounded text-sm outline-none" required></div>
+                    <div class="col-span-2 border-t pt-2 mt-2">
+                        <label class="block text-xs font-bold text-gray-700 mb-1">Estructura Asignada</label>
+                        <select id="ing_ua" class="w-full p-2 border rounded text-sm outline-none mb-2" onchange="actualizarGerenciasIngreso()" required><option value="">Seleccione Unidad Administrativa (VP)</option></select>
+                        <select id="ing_gg" class="w-full p-2 border rounded text-sm outline-none" required><option value="">Seleccione Gerencia General</option></select>
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700 transition">Registrar Ingreso</button>
+            </form>
+
+            <form id="form-mov-transferencia" onsubmit="procesarTransferencia(event)" class="space-y-4 hidden">
+                <div><label class="block text-xs font-bold text-gray-700">P00 a Transferir</label><input type="text" id="trans_p00" class="w-full p-2 border rounded text-sm outline-none" required></div>
+                <div><label class="block text-xs font-bold text-gray-700">Fecha Efectiva</label><input type="date" id="trans_fecha" class="w-full p-2 border rounded text-sm outline-none" required></div>
+                <div class="border-t pt-2 mt-2">
+                    <label class="block text-xs font-bold text-gray-700 mb-1">Nueva Estructura Destino</label>
+                    <select id="trans_ua" class="w-full p-2 border rounded text-sm outline-none mb-2" onchange="actualizarGerenciasTrans()" required><option value="">Seleccione Nueva VP</option></select>
+                    <select id="trans_gg" class="w-full p-2 border rounded text-sm outline-none" required><option value="">Seleccione Nueva Gerencia</option></select>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700 transition">Ejecutar Transferencia</button>
+            </form>
+
+            <form id="form-mov-egreso" onsubmit="procesarEgreso(event)" class="space-y-4 hidden">
+                <div class="bg-red-50 p-3 rounded border border-red-200 mb-4">
+                    <p class="text-xs text-red-800 font-bold"><i class="fa-solid fa-triangle-exclamation mr-1"></i>Al procesar el egreso, el sistema bloqueará la asistencia de los días restantes de la semana activa.</p>
+                </div>
+                <div><label class="block text-xs font-bold text-gray-700">P00 a Egresar</label><input type="text" id="egr_p00" class="w-full p-2 border rounded text-sm outline-none" required></div>
+                <div><label class="block text-xs font-bold text-gray-700">Fecha Efectiva de Egreso</label><input type="date" id="egr_fecha" class="w-full p-2 border rounded text-sm outline-none" required></div>
+                <button type="submit" class="w-full bg-red-600 text-white py-2 rounded font-bold hover:bg-red-700 transition">Procesar Egreso</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL DE REPOSO -->
     <div id="modal-reposo" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
         <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
             <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-notes-medical text-blue-600 mr-2"></i>Registrar Reposo Médico</h3>
@@ -273,6 +324,7 @@
         </div>
     </div>
 
+    <!-- MODAL DE HISTÓRICO HORIZONTAL -->
     <div id="modal-historico" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-6xl h-full max-h-[90vh] flex flex-col">
             <div class="flex justify-between items-center border-b pb-3 mb-4">
@@ -478,10 +530,15 @@
                             select.disabled = true; select.title = "Cargado por RRHH"; select.classList.add("cursor-not-allowed", "opacity-100", "bg-purple-100", "text-purple-800", "font-bold", "border-purple-300", "uppercase");
                             const opt = document.createElement('option'); opt.value = ausentismoActivo.tipo_ausentismo; opt.innerText = ausentismoActivo.tipo_ausentismo.toUpperCase(); opt.selected = true; select.appendChild(opt);
                             empLlenos++;
+                        } else if(estActual === "Egresado") {
+                            select.disabled = true; select.classList.add("cursor-not-allowed", "opacity-100", "bg-gray-200", "text-gray-800", "font-bold", "border-gray-400", "uppercase");
+                            const opt = document.createElement('option'); opt.value = "Egresado"; opt.innerText = "EGRESADO"; opt.selected = true; select.appendChild(opt);
+                            empLlenos++;
                         } else {
                             if(estActual !== "") empLlenos++;
                             if(!emp.editable) { select.disabled = true; select.classList.add("cursor-not-allowed", "opacity-90"); }
                             ESTATUS_PERMITIDOS.forEach(est => {
+                                if(est === "Egresado") return; // No dejar seleccionarlo manualmente
                                 const opt = document.createElement('option'); opt.value = est; opt.innerText = est === "" ? (emp.editable ? "Pendiente" : "Sin Reporte") : est;
                                 if(est === estActual) opt.selected = true; select.appendChild(opt);
                             });
@@ -584,7 +641,7 @@
                 const res = await fetch(`${API_BASE}/api/enviar-a-rrhh`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ unidad_nombre: currentUser, rol_usuario: currentRole }) });
                 if(res.ok) {
                     alert("Asistencia enviada a RRHH exitosamente.");
-                    cargarDatosUnidad(); // Refrescar para ver el cartel de semana cerrada
+                    cargarDatosUnidad(); 
                 } else { const data = await res.json(); alert(data.detail); btn.disabled = false; }
             } catch (e) { alert("Error."); btn.disabled = false; }
         }
@@ -680,6 +737,7 @@
                         if(est === "Asistencia Normal") { badgeClass = "bg-green-100 text-green-800"; text = "NORMAL"; }
                         else if(est === "Falta Injustificada") { badgeClass = "bg-red-100 text-red-800"; text = "FALTA"; }
                         else if(est === "Teletrabajo") { badgeClass = "bg-cyan-100 text-cyan-800"; text = "TELETRAB."; }
+                        else if(est === "Egresado") { badgeClass = "bg-gray-800 text-white"; text = "EGRESADO"; }
                         else if(est !== "") { badgeClass = "bg-purple-100 text-purple-800"; text = est.toUpperCase(); }
                         
                         tr.innerHTML += `<td class="px-2 py-3 border-r text-center"><span class="px-2 py-1 rounded text-[9px] font-bold ${badgeClass}">${text}</span></td>`;
@@ -703,8 +761,81 @@
         }
 
         // ==========================================
-        // LÓGICA RRHH
+        // LÓGICA RRHH (MOVIMIENTOS INDIVIDUALES)
         // ==========================================
+        function switchTabMov(tab) {
+            document.getElementById('form-mov-ingreso').classList.add('hidden');
+            document.getElementById('form-mov-transferencia').classList.add('hidden');
+            document.getElementById('form-mov-egreso').classList.add('hidden');
+            
+            document.getElementById('tab-ingreso').className = "py-2 px-4 text-sm font-bold text-gray-500 hover:text-blue-600";
+            document.getElementById('tab-transferencia').className = "py-2 px-4 text-sm font-bold text-gray-500 hover:text-blue-600";
+            document.getElementById('tab-egreso').className = "py-2 px-4 text-sm font-bold text-gray-500 hover:text-blue-600";
+
+            document.getElementById(`form-mov-${tab}`).classList.remove('hidden');
+            document.getElementById(`tab-${tab}`).className = "py-2 px-4 text-sm font-bold text-blue-600 border-b-2 border-blue-600";
+            
+            if(tab === 'ingreso' || tab === 'transferencia') cargarEstructuraSelectsMovs();
+        }
+
+        async function cargarEstructuraSelectsMovs() {
+            try {
+                const res = await fetch(`${API_BASE}/api/rrhh/organizacion`); const data = await res.json();
+                if(res.ok) {
+                    estructuraOrganizativa = data.estructura;
+                    const selectIngUA = document.getElementById('ing_ua'); selectIngUA.innerHTML = '<option value="">Seleccione VP</option>';
+                    const selectTransUA = document.getElementById('trans_ua'); selectTransUA.innerHTML = '<option value="">Seleccione Nueva VP</option>';
+                    for(let ua in estructuraOrganizativa) { 
+                        selectIngUA.innerHTML += `<option value="${ua}">${ua}</option>`; 
+                        selectTransUA.innerHTML += `<option value="${ua}">${ua}</option>`; 
+                    }
+                }
+            } catch(e) { console.log("Error cargando estructura para movimientos"); }
+        }
+
+        function actualizarGerenciasIngreso() {
+            const selectUA = document.getElementById('ing_ua').value; const selectGG = document.getElementById('ing_gg');
+            selectGG.innerHTML = '<option value="">Seleccione Gerencia</option>';
+            if(selectUA && estructuraOrganizativa[selectUA]) { estructuraOrganizativa[selectUA].forEach(gg => { selectGG.innerHTML += `<option value="${gg}">${gg}</option>`; }); }
+        }
+
+        function actualizarGerenciasTrans() {
+            const selectUA = document.getElementById('trans_ua').value; const selectGG = document.getElementById('trans_gg');
+            selectGG.innerHTML = '<option value="">Seleccione Nueva Gerencia</option>';
+            if(selectUA && estructuraOrganizativa[selectUA]) { estructuraOrganizativa[selectUA].forEach(gg => { selectGG.innerHTML += `<option value="${gg}">${gg}</option>`; }); }
+        }
+
+        async function procesarIngreso(e) {
+            e.preventDefault();
+            const payload = { p00: document.getElementById('ing_p00').value, cedula: document.getElementById('ing_cedula').value, nombres_apellidos: document.getElementById('ing_nombre').value, fecha_ingreso: document.getElementById('ing_fecha').value, unidad_administrativa: document.getElementById('ing_ua').value, gerencia_general: document.getElementById('ing_gg').value };
+            try {
+                const res = await fetch(`${API_BASE}/api/rrhh/ingreso`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+                const data = await res.json();
+                if(res.ok) { alert(data.mensaje); document.getElementById('form-mov-ingreso').reset(); cargarMonitoreoRRHH(); } else alert(data.detail);
+            } catch(e) { alert("Error."); }
+        }
+
+        async function procesarEgreso(e) {
+            e.preventDefault();
+            if(!confirm("¿Está seguro de procesar este egreso? El trabajador será bloqueado.")) return;
+            const payload = { p00: document.getElementById('egr_p00').value, fecha_egreso: document.getElementById('egr_fecha').value };
+            try {
+                const res = await fetch(`${API_BASE}/api/rrhh/egreso`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+                const data = await res.json();
+                if(res.ok) { alert(data.mensaje); document.getElementById('form-mov-egreso').reset(); cargarMonitoreoRRHH(); } else alert(data.detail);
+            } catch(e) { alert("Error."); }
+        }
+
+        async function procesarTransferencia(e) {
+            e.preventDefault();
+            const payload = { p00: document.getElementById('trans_p00').value, fecha_efectiva: document.getElementById('trans_fecha').value, unidad_administrativa: document.getElementById('trans_ua').value, gerencia_general: document.getElementById('trans_gg').value };
+            try {
+                const res = await fetch(`${API_BASE}/api/rrhh/transferencia`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
+                const data = await res.json();
+                if(res.ok) { alert(data.mensaje); document.getElementById('form-mov-transferencia').reset(); cargarMonitoreoRRHH(); } else alert(data.detail);
+            } catch(e) { alert("Error."); }
+        }
+
         async function reversarCierre(jurisdiccion) {
             if(!confirm(`⚠️ ATENCIÓN RRHH:\n\n¿Desea REVERSAR el cierre de: ${jurisdiccion}?\n\nEsto liberará el candado y permitirá que los Jefes de Unidad vuelvan a editar los registros de asistencia de esta semana.`)) return;
             try {
@@ -725,16 +856,6 @@
                 const data = await res.json();
                 if(res.ok) { alert(data.mensaje); cargarMonitoreoRRHH(); } else alert("Error: " + data.detail);
             } catch(e) { alert("Error de servidor."); }
-        }
-
-        async function cargarMovimientosRRHH() {
-            const fileInput = document.getElementById('file-movimientos'); if(!fileInput.files[0]) return alert("Seleccione el Excel de Movimientos.");
-            const formData = new FormData(); formData.append("file", fileInput.files[0]);
-            try {
-                const res = await fetch(`${API_BASE}/api/rrhh/movimientos`, { method: 'POST', body: formData });
-                const data = await res.json();
-                if(res.ok) { alert(data.mensaje); fileInput.value = ""; cargarMonitoreoRRHH(); } else alert("Error: " + data.detail);
-            } catch(e) { alert("Error procesando archivo."); }
         }
 
         async function cargarAbsentismosRRHH() {
