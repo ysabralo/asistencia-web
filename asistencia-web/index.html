@@ -176,7 +176,7 @@
             </div>
             
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- 1. APERTURAR SEMANA (NUEVO) -->
+                <!-- 1. APERTURAR SEMANA -->
                 <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                     <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-calendar-plus text-blue-600 mr-2"></i>1. Aperturar Semana</h2>
                     <div class="space-y-3 mb-4">
@@ -230,7 +230,10 @@
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100 flex-grow flex flex-col">
                         <div class="flex items-center justify-between mb-4 border-b pb-2">
                             <h2 class="text-lg font-bold text-gray-800"><i class="fa-solid fa-chart-pie text-purple-600 mr-2"></i>Auditoría de Avance Estructural</h2>
-                            <button onclick="cargarMonitoreoRRHH()" class="text-blue-700 bg-blue-50 px-3 py-1 rounded-lg text-xs font-bold border border-blue-200 hover:bg-blue-100 transition"><i class="fa-solid fa-rotate-right mr-1"></i>Actualizar</button>
+                            <div class="flex gap-2">
+                                <button onclick="abrirModalHistorico()" class="bg-gray-800 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-gray-900 transition shadow"><i class="fa-solid fa-clock-rotate-left mr-1"></i>Histórico Global</button>
+                                <button onclick="cargarMonitoreoRRHH()" class="text-blue-700 bg-blue-50 px-3 py-1 rounded-lg text-xs font-bold border border-blue-200 hover:bg-blue-100 transition shadow-sm"><i class="fa-solid fa-rotate-right mr-1"></i>Actualizar</button>
+                            </div>
                         </div>
                         <div class="overflow-y-auto flex-grow max-h-[500px] mb-4 border border-gray-200 rounded shadow-inner bg-gray-50">
                             <table class="min-w-full divide-y divide-gray-200">
@@ -254,7 +257,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE MOVIMIENTOS INDIVIDUALES (NUEVO) -->
+    <!-- MODAL DE MOVIMIENTOS INDIVIDUALES -->
     <div id="modal-movimientos" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50 p-4">
         <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl">
             <div class="flex justify-between items-center border-b pb-2 mb-4">
@@ -338,7 +341,7 @@
                 </select>
                 <div class="relative w-full">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><i class="fa-solid fa-magnifying-glass text-gray-400"></i></div>
-                    <input type="text" id="filtro-historico" placeholder="Buscar trabajador por nombre o P00..." class="pl-10 w-full p-2 border border-gray-300 rounded outline-none focus:border-blue-500 text-sm" onkeyup="filtrarHistoricoUI()">
+                    <input type="text" id="filtro-historico" placeholder="Buscar por Nombre, P00 o Gerencia..." class="pl-10 w-full p-2 border border-gray-300 rounded outline-none focus:border-blue-500 text-sm" onkeyup="filtrarHistoricoUI()">
                 </div>
             </div>
 
@@ -361,7 +364,7 @@
         let empleadosGlobal = [];
         let fechasGlobal = [];
         
-        const ESTATUS_PERMITIDOS = ["", "Asistencia Normal", "Teletrabajo", "Reposo", "Vacaciones", "Permiso otorgado", "Falta Injustificada", "Dia Descanso Legal", "Dia Libre Compensatorio"];
+        const ESTATUS_PERMITIDOS = ["", "Asistencia Normal", "Teletrabajo", "Reposo", "Vacaciones", "Permiso otorgado", "Falta Injustificada", "Dia Descanso Legal", "Dia Libre Compensatorio", "Egresado"];
 
         function mostrarVista(vistaId) {
             document.getElementById('view-login').style.display = 'none';
@@ -538,7 +541,7 @@
                             if(estActual !== "") empLlenos++;
                             if(!emp.editable) { select.disabled = true; select.classList.add("cursor-not-allowed", "opacity-90"); }
                             ESTATUS_PERMITIDOS.forEach(est => {
-                                if(est === "Egresado") return; // No dejar seleccionarlo manualmente
+                                if(est === "Egresado") return;
                                 const opt = document.createElement('option'); opt.value = est; opt.innerText = est === "" ? (emp.editable ? "Pendiente" : "Sin Reporte") : est;
                                 if(est === estActual) opt.selected = true; select.appendChild(opt);
                             });
@@ -677,14 +680,18 @@
         }
 
         // ==========================================
-        // FUNCIONALIDAD HISTÓRICA (MODAL ACTUALIZADO)
+        // FUNCIONALIDAD HISTÓRICA DUAL (UNIDAD Y RRHH)
         // ==========================================
         async function abrirModalHistorico() {
             document.getElementById('modal-historico').classList.remove('hidden');
             const select = document.getElementById('select-semana-historico');
             select.innerHTML = '<option value="">Cargando semanas...</option>';
             try {
-                const res = await fetch(`${API_BASE}/api/unidad/semanas-cerradas/${currentUser}`);
+                let url = currentRole === 'Recursos Humanos' 
+                    ? `${API_BASE}/api/rrhh/semanas-cerradas` 
+                    : `${API_BASE}/api/unidad/semanas-cerradas/${currentUser}`;
+                
+                const res = await fetch(url);
                 const data = await res.json();
                 select.innerHTML = '<option value="">Seleccione una semana certificada...</option>';
                 if (data.semanas && data.semanas.length > 0) {
@@ -712,7 +719,11 @@
             tbody.innerHTML = '<tr><td colspan="8" class="text-center p-10"><i class="fa-solid fa-spinner fa-spin text-blue-500 text-2xl"></i></td></tr>';
             
             try {
-                const res = await fetch(`${API_BASE}/api/unidad/historico-semana/${currentUser}?inicio=${inicio}&fin=${fin}`);
+                let url = currentRole === 'Recursos Humanos'
+                    ? `${API_BASE}/api/rrhh/historico-semana?inicio=${inicio}&fin=${fin}`
+                    : `${API_BASE}/api/unidad/historico-semana/${currentUser}?inicio=${inicio}&fin=${fin}`;
+                
+                const res = await fetch(url);
                 const data = await res.json();
                 
                 const fechas = [];
@@ -745,6 +756,7 @@
                     
                     tr.setAttribute('data-nombre', emp.nombres_apellidos.toLowerCase());
                     tr.setAttribute('data-p00', emp.p00);
+                    tr.setAttribute('data-gerencia', emp.gerencia.toLowerCase());
                     tbody.appendChild(tr);
                 });
                 if(data.empleados.length === 0) tbody.innerHTML = '<tr><td colspan="8" class="text-center text-gray-500 p-4">No hay registros en esta semana.</td></tr>';
@@ -755,8 +767,8 @@
             const texto = document.getElementById('filtro-historico').value.toLowerCase();
             const filas = document.querySelectorAll('.fila-historica-dinamica');
             filas.forEach(fila => {
-                const nombre = fila.getAttribute('data-nombre'); const p00 = fila.getAttribute('data-p00');
-                if (nombre.includes(texto) || p00.includes(texto)) fila.style.display = ''; else fila.style.display = 'none';
+                const nombre = fila.getAttribute('data-nombre'); const p00 = fila.getAttribute('data-p00'); const gerencia = fila.getAttribute('data-gerencia');
+                if (nombre.includes(texto) || p00.includes(texto) || gerencia.includes(texto)) fila.style.display = ''; else fila.style.display = 'none';
             });
         }
 
