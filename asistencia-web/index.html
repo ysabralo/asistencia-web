@@ -73,18 +73,18 @@
                     <div class="bg-white rounded-xl shadow-md p-5 border border-blue-100 border-t-4 border-t-blue-500">
                         <h2 class="text-sm font-bold text-blue-800 mb-3 uppercase tracking-wider"><i class="fa-solid fa-user-edit mr-2"></i>Mi Gestión Directa</h2>
                         <div class="flex justify-between items-center mb-3">
-                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Días Asignados</p><p id="kpi-mios-total" class="text-xl font-bold text-gray-800">0</p></div>
-                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Días Listos</p><p id="kpi-mios-listos" class="text-xl font-bold text-green-600">0</p></div>
-                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Días Faltantes</p><p id="kpi-mios-faltan" class="text-xl font-bold text-red-500">0</p></div>
+                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Trabajadores</p><p id="kpi-mios-total" class="text-xl font-bold text-gray-800">0</p></div>
+                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Listos</p><p id="kpi-mios-listos" class="text-xl font-bold text-green-600">0</p></div>
+                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Faltantes</p><p id="kpi-mios-faltan" class="text-xl font-bold text-red-500">0</p></div>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-2"><div id="kpi-mios-bar" class="bg-blue-500 h-2 rounded-full" style="width: 0%"></div></div>
                     </div>
                     <div id="card-terceros" class="bg-white rounded-xl shadow-md p-5 border border-purple-100 border-t-4 border-t-purple-500 hidden">
                         <h2 class="text-sm font-bold text-purple-800 mb-3 uppercase tracking-wider"><i class="fa-solid fa-users mr-2"></i>Gestión de Terceros (Auditoría)</h2>
                         <div class="flex justify-between items-center mb-3">
-                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Días Asignados</p><p id="kpi-otros-total" class="text-xl font-bold text-gray-800">0</p></div>
-                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Días Listos</p><p id="kpi-otros-listos" class="text-xl font-bold text-green-600">0</p></div>
-                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Días Faltantes</p><p id="kpi-otros-faltan" class="text-xl font-bold text-orange-500">0</p></div>
+                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Trabajadores</p><p id="kpi-otros-total" class="text-xl font-bold text-gray-800">0</p></div>
+                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Listos</p><p id="kpi-otros-listos" class="text-xl font-bold text-green-600">0</p></div>
+                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Faltantes</p><p id="kpi-otros-faltan" class="text-xl font-bold text-orange-500">0</p></div>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-2"><div id="kpi-otros-bar" class="bg-purple-500 h-2 rounded-full" style="width: 0%"></div></div>
                     </div>
@@ -176,7 +176,6 @@
             </div>
             
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <!-- 1. APERTURAR SEMANA -->
                 <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                     <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-calendar-plus text-blue-600 mr-2"></i>1. Aperturar Semana</h2>
                     <div class="space-y-3 mb-4">
@@ -186,7 +185,6 @@
                     <button onclick="aperturarSemanaRRHH()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 transition shadow">Abrir Nueva Semana</button>
                 </div>
 
-                <!-- 2. MOVIMIENTOS Y ABSENTISMOS -->
                 <div class="space-y-6">
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                         <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-users-gear text-blue-600 mr-2"></i>2. Movimientos de Personal</h2>
@@ -194,23 +192,19 @@
                             <button onclick="document.getElementById('modal-movimientos').classList.remove('hidden')" class="w-full bg-blue-100 text-blue-700 py-2 rounded font-bold hover:bg-blue-200 text-xs border border-blue-200"><i class="fa-solid fa-user-edit mr-1"></i>Gestionar</button>
                         </div>
                     </div>
-
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                         <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-file-medical text-blue-600 mr-2"></i>3. Cargar Absentismos</h2>
                         <input type="file" id="file-absentismos" accept=".xlsx" class="block w-full text-sm text-gray-500 file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:font-semibold file:bg-gray-100 file:text-gray-700 mb-2 border border-gray-300"/>
-                        <div class="bg-purple-50 text-purple-800 text-[10px] p-2 rounded border border-purple-200 mb-3 font-medium">Cols: P00, Tipo_Ausentismo, Fecha_Inicio, Fecha_Fin</div>
                         <button onclick="cargarAbsentismosRRHH()" class="w-full bg-purple-600 text-white py-2 rounded-lg font-bold hover:bg-purple-700 transition shadow">Subir Absentismos</button>
                     </div>
                 </div>
 
-                <!-- 3. ESTRUCTURA Y USUARIOS -->
                 <div class="space-y-6">
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                         <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-sitemap text-blue-600 mr-2"></i>4. Estructura Oficial</h2>
                         <input type="file" id="file-estructura" accept=".xlsx" class="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:font-bold file:bg-gray-100 file:text-gray-700 mb-2 border border-gray-300"/>
                         <button onclick="importarEstructuraRRHH()" class="w-full bg-blue-600 text-white py-1.5 rounded text-xs font-bold hover:bg-blue-700 transition shadow">Actualizar Estructura</button>
                     </div>
-
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                         <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-key text-blue-600 mr-2"></i>5. Accesos</h2>
                         <form id="form-usuarios" onsubmit="crearUsuario(event)" class="space-y-3">
@@ -308,7 +302,7 @@
         </div>
     </div>
 
-    <!-- MODAL DE REPOSO -->
+    <!-- MODALES VARIOS -->
     <div id="modal-reposo" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
         <div class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md mx-4">
             <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-notes-medical text-blue-600 mr-2"></i>Registrar Reposo Médico</h3>
@@ -360,9 +354,7 @@
         const API_BASE = window.location.origin; 
         let currentUser = null; let currentRole = null; let semanaData = null; let estructuraOrganizativa = {}; 
         let mostrandoOtros = false;
-        
-        let empleadosGlobal = [];
-        let fechasGlobal = [];
+        let empleadosGlobal = []; let fechasGlobal = [];
         
         const ESTATUS_PERMITIDOS = ["", "Asistencia Normal", "Teletrabajo", "Reposo", "Vacaciones", "Permiso otorgado", "Falta Injustificada", "Dia Descanso Legal", "Dia Libre Compensatorio", "Egresado"];
 
@@ -390,8 +382,7 @@
                     if(currentRole === "Recursos Humanos") {
                         mostrarVista('view-rrhh'); cargarEstructuraSelects(); cargarMonitoreoRRHH(); cargarUsuariosRRHH();
                     } else {
-                        mostrarVista('view-unidad');
-                        cargarDatosUnidad();
+                        mostrarVista('view-unidad'); cargarDatosUnidad();
                     }
                 } else { err.innerText = data.detail || "Error de credenciales"; err.classList.remove('hidden'); }
             } catch (error) { err.innerText = "Falla de red contactando al ERP."; err.classList.remove('hidden'); }
@@ -405,13 +396,9 @@
 
         function toggleTablaOtros() {
             mostrandoOtros = !mostrandoOtros;
-            const tabla = document.getElementById('contenedor-tabla-otros');
-            const btn = document.getElementById('btn-toggle-otros');
-            if(mostrandoOtros) {
-                tabla.classList.remove('hidden'); btn.innerHTML = '<i class="fa-solid fa-eye-slash mr-2"></i> Ocultar Personal de Otras Gerencias';
-            } else {
-                tabla.classList.add('hidden'); btn.innerHTML = '<i class="fa-solid fa-eye mr-2"></i> Ver Personal de Otras Gerencias (Auditoría)';
-            }
+            const tabla = document.getElementById('contenedor-tabla-otros'); const btn = document.getElementById('btn-toggle-otros');
+            if(mostrandoOtros) { tabla.classList.remove('hidden'); btn.innerHTML = '<i class="fa-solid fa-eye-slash mr-2"></i> Ocultar Personal de Otras Gerencias'; } 
+            else { tabla.classList.add('hidden'); btn.innerHTML = '<i class="fa-solid fa-eye mr-2"></i> Ver Personal de Otras Gerencias (Auditoría)'; }
         }
 
         function armarCabeceraFechas(fechasArray) {
@@ -421,8 +408,7 @@
                 let dt = new Date(f + "T12:00:00");
                 html += `<th class="px-4 py-3 text-center text-xs font-bold text-gray-600 uppercase border-r"><div class="text-blue-600 font-bold text-[10px] uppercase mb-0.5">${diasSemana[dt.getDay()]}</div><div class="font-bold text-gray-700 text-sm">${dt.getDate()}/${dt.getMonth()+1}</div></th>`;
             });
-            html += `</tr>`;
-            return html;
+            html += `</tr>`; return html;
         }
 
         function aplicarFiltrosUI() {
@@ -507,8 +493,8 @@
 
                 tbodyMios.innerHTML = ''; tbodyOtros.innerHTML = '';
                 
-                let miosDiasTot = 0; let miosLlenos = 0; let miosFaltan = 0;
-                let otrosDiasTot = 0; let otrosLlenos = 0; let otrosFaltan = 0;
+                let miosTotal = 0; let miosListos = 0; let miosFaltan = 0;
+                let otrosTotal = 0; let otrosListos = 0; let otrosFaltan = 0;
 
                 data.empleados.forEach(emp => {
                     const tr = document.createElement('tr'); tr.className = "hover:bg-blue-50 border-b border-gray-100 fila-empleado-dinamica";
@@ -563,21 +549,24 @@
                         td.appendChild(select); tr.appendChild(td);
                     });
 
+                    // KPI LÓGICA (Por Trabajador)
+                    let trabajadorListo = (empLlenos >= diasQueLeTocan && diasQueLeTocan > 0) || (diasQueLeTocan === 0);
+
                     tr.setAttribute('data-nombre', emp.nombres_apellidos.toLowerCase());
                     tr.setAttribute('data-p00', emp.p00);
-                    tr.setAttribute('data-faltante', empLlenos < diasQueLeTocan ? 'si' : 'no');
+                    tr.setAttribute('data-faltante', trabajadorListo ? 'no' : 'si');
 
                     if (emp.editable) { 
-                        tbodyMios.appendChild(tr); 
-                        miosDiasTot += diasQueLeTocan; miosLlenos += empLlenos; miosFaltan += (diasQueLeTocan - empLlenos); 
+                        tbodyMios.appendChild(tr); miosTotal++; 
+                        if (trabajadorListo) miosListos++; else miosFaltan++;
                     } else { 
-                        tbodyOtros.appendChild(tr); 
-                        otrosDiasTot += diasQueLeTocan; otrosLlenos += empLlenos; otrosFaltan += (diasQueLeTocan - empLlenos); 
+                        tbodyOtros.appendChild(tr); otrosTotal++; 
+                        if (trabajadorListo) otrosListos++; else otrosFaltan++;
                     }
                 });
 
-                if (miosDiasTot === 0) tbodyMios.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-gray-500">No ha reclamado personal. Use el panel superior para vincular sus P00.</td></tr>';
-                if (otrosDiasTot === 0) tbodyOtros.innerHTML = '<tr><td colspan="8" class="px-6 py-6 text-center text-gray-500">No hay personal externo en su jurisdicción.</td></tr>';
+                if (miosTotal === 0) tbodyMios.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-gray-500">No ha reclamado personal. Use el panel superior para vincular sus P00.</td></tr>';
+                if (otrosTotal === 0) tbodyOtros.innerHTML = '<tr><td colspan="8" class="px-6 py-6 text-center text-gray-500">No hay personal externo en su jurisdicción.</td></tr>';
                 if (data.empleados.length > 0) barraHerramientas.classList.remove('hidden');
                 
                 if (currentRole === 'Cierre de Unidad') { 
@@ -585,31 +574,31 @@
                     document.getElementById('card-terceros').classList.remove('hidden'); 
                     document.getElementById('panel-cierre-unidad').classList.remove('hidden');
                     document.getElementById('panel-cierre-unidad').classList.add('flex');
-                    if(otrosDiasTot > 0) document.getElementById('btn-toggle-wrapper').classList.remove('hidden'); 
+                    if(otrosTotal > 0) document.getElementById('btn-toggle-wrapper').classList.remove('hidden'); 
                 } else if(currentRole === 'Reportador') {
                     document.getElementById('panel-solo-lectura').classList.remove('hidden');
                 }
 
-                document.getElementById('kpi-mios-total').innerText = miosDiasTot;
-                document.getElementById('kpi-mios-listos').innerText = miosLlenos;
+                document.getElementById('kpi-mios-total').innerText = miosTotal;
+                document.getElementById('kpi-mios-listos').innerText = miosListos;
                 document.getElementById('kpi-mios-faltan').innerText = miosFaltan;
-                document.getElementById('kpi-mios-bar').style.width = (miosDiasTot > 0 ? (miosLlenos / miosDiasTot)*100 : 0) + '%';
+                document.getElementById('kpi-mios-bar').style.width = (miosTotal > 0 ? (miosListos / miosTotal)*100 : 0) + '%';
                 
-                document.getElementById('kpi-otros-total').innerText = otrosDiasTot;
-                document.getElementById('kpi-otros-listos').innerText = otrosLlenos;
+                document.getElementById('kpi-otros-total').innerText = otrosTotal;
+                document.getElementById('kpi-otros-listos').innerText = otrosListos;
                 document.getElementById('kpi-otros-faltan').innerText = otrosFaltan;
-                document.getElementById('kpi-otros-bar').style.width = (otrosDiasTot > 0 ? (otrosLlenos / otrosDiasTot)*100 : 0) + '%';
+                document.getElementById('kpi-otros-bar').style.width = (otrosTotal > 0 ? (otrosListos / otrosTotal)*100 : 0) + '%';
 
-                const totalGlobalDias = miosDiasTot + otrosDiasTot;
-                const llenosGlobalDias = miosLlenos + otrosLlenos;
+                const totalGlobal = miosTotal + otrosTotal;
+                const listosGlobal = miosListos + otrosListos;
                 
                 const bar = document.getElementById('progress-bar-global'); const txt = document.getElementById('progress-text-global');
                 const btn = document.getElementById('btn-enviar-rrhh'); 
                 
-                let pct = totalGlobalDias > 0 ? Math.round((llenosGlobalDias / totalGlobalDias) * 100) : 0;
+                let pct = totalGlobal > 0 ? Math.round((listosGlobal / totalGlobal) * 100) : 0;
                 bar.style.width = pct + '%'; txt.innerText = pct + '%';
                 
-                if(pct >= 100 && totalGlobalDias > 0 && miosFaltan === 0 && otrosFaltan === 0) { 
+                if(pct >= 100 && totalGlobal > 0 && miosFaltan === 0 && otrosFaltan === 0) { 
                     btn.disabled = false; btn.classList.replace('bg-gray-400', 'bg-blue-600'); 
                 } else { 
                     btn.disabled = true; btn.classList.replace('bg-blue-600', 'bg-gray-400'); 
@@ -654,10 +643,7 @@
             const btn = document.getElementById('btn-enviar-rrhh'); btn.disabled = true;
             try {
                 const res = await fetch(`${API_BASE}/api/enviar-a-rrhh`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ unidad_nombre: currentUser, rol_usuario: currentRole }) });
-                if(res.ok) {
-                    alert("Asistencia enviada a RRHH exitosamente.");
-                    cargarDatosUnidad(); 
-                } else { const data = await res.json(); alert(data.detail); btn.disabled = false; }
+                if(res.ok) { alert("Asistencia enviada a RRHH exitosamente."); cargarDatosUnidad(); } else { const data = await res.json(); alert(data.detail); btn.disabled = false; }
             } catch (e) { alert("Error."); btn.disabled = false; }
         }
 
