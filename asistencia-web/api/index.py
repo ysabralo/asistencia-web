@@ -13,7 +13,7 @@ import openpyxl
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title="Asistencia Movilnet ERP v7.1")
+app = FastAPI(title="Asistencia Movilnet ERP v7.2")
 
 app.add_middleware(
     CORSMiddleware,
@@ -386,7 +386,7 @@ def rrhh_transferencia(req: TransferenciaRequest, db = Depends(get_db)):
     """, (emp['unidad_administrativa'], emp['gerencia_general'], reportador_old, req.fecha_efectiva, req.unidad_administrativa, req.gerencia_general, req.p00))
     
     db.commit()
-    return {"success": True, "mensaje": f"Trabajador {emp['nombres_apellidos']} transferido exitosamente.\nLa nueva unidad ya puede vincularlo."}
+    return {"success": True, "mensaje": f"Trabajador {emp['nombres_apellidos']} transferido exitosamente.\nLa nueva unidad ya puede vincularlo, y la unidad antigua no lo perderá hasta el cierre."}
 
 # ==========================================
 # 4. GESTIÓN AUTÓNOMA DE PERSONAL (UNIDADES)
@@ -526,6 +526,15 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
     usr = cursor.fetchone()
     if not usr: raise HTTPException(status_code=404, detail="Usuario no encontrado")
     
+    # Obtenemos la Jurisdiccion Formateada para inyectarla al Frontend
+    jurisdiccion_str = ""
+    if usr['unidad_administrativa']:
+        jurisdiccion_str = usr['unidad_administrativa']
+        if usr['gerencia_general']:
+            jurisdiccion_str += f" - {usr['gerencia_general']}"
+    else:
+        jurisdiccion_str = "Reportador Local" if usr['rol'] == 'Reportador' else "Acceso Global"
+
     bloqueado = is_jurisdiction_locked(cursor, username, semana_ini, semana_fin)
     
     cursor.execute("SELECT p00 FROM plantilla_local WHERE username = %s", (username,))
@@ -605,7 +614,8 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
             
     return {
         "semana_activa": True, "fecha_inicio": semana_ini.strftime('%Y-%m-%d'), "fecha_fin": semana_fin.strftime('%Y-%m-%d'),
-        "bloqueado_por_envio": bloqueado, "empleados": list(empleados_dict.values()), "ausentismos_fijos": ausentismos_fijos
+        "bloqueado_por_envio": bloqueado, "empleados": list(empleados_dict.values()), "ausentismos_fijos": ausentismos_fijos,
+        "jurisdiccion": jurisdiccion_str
     }
 
 @app.post("/api/guardar-dia")
@@ -852,18 +862,9 @@ def descargar_consolidado(db = Depends(get_db)):
     sem_fin = str(config['semana_fin'])[:10]
 
     query_val = """
-        WITH agrupado AS (
-            SELECT CASE WHEN unidad_administrativa = 'Presidencia' THEN gerencia_general ELSE unidad_administrativa END as jurisdiccion 
-            FROM empleados_maestro WHERE estatus = 'Activo' GROUP BY 1
-        ),
-        certificaciones AS (
-            SELECT CASE WHEN u.unidad_administrativa = 'Presidencia' THEN u.gerencia_general ELSE u.unidad_administrativa END as jurisdiccion 
-            FROM usuarios u 
-            JOIN estado_entregas e ON u.username = e.unidad_nombre 
-            WHERE e.semana_inicio = %s AND e.semana_fin = %s 
-            GROUP BY 1
-        )
-        SELECT a.jurisdiccion FROM agrupado a LEFT JOIN certificaciones c ON a.jurisdiccion = c.jurisdiccion WHERE c.jurisdiccion IS NULL
+        SELECT u.username FROM usuarios u
+        LEFT JOIN estado_entregas e ON u.username = e.unidad_nombre AND e.semana_inicio = %s AND e.semana_fin = %s
+        WHERE u.rol = 'Cierre de Unidad' AND e.estatus_entrega IS NULL
     """
     cursor.execute(query_val, (sem_ini, sem_fin))
     if cursor.fetchall(): raise HTTPException(status_code=403, detail="Consolidado Bloqueado: Faltan Unidades por certificar asistencia.")
