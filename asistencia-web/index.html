@@ -57,7 +57,7 @@
                 </div>
             </div>
 
-            <!-- CARTEL DE SEMANA CERRADA (BLOQUEO TOTAL EN CASCADA) -->
+            <!-- CARTEL DE SEMANA CERRADA -->
             <div id="panel-semana-cerrada" class="bg-white rounded-xl shadow-md p-10 text-center border border-green-200 hidden mt-6">
                 <div class="inline-block p-4 bg-green-50 rounded-full mb-4 shadow-sm border border-green-100"><i class="fa-solid fa-check-double text-5xl text-green-600"></i></div>
                 <h2 class="text-2xl font-bold text-gray-800 mb-2">Semana Certificada Exitosamente</h2>
@@ -73,18 +73,18 @@
                     <div class="bg-white rounded-xl shadow-md p-5 border border-blue-100 border-t-4 border-t-blue-500">
                         <h2 class="text-sm font-bold text-blue-800 mb-3 uppercase tracking-wider"><i class="fa-solid fa-user-edit mr-2"></i>Mi Gestión Directa</h2>
                         <div class="flex justify-between items-center mb-3">
-                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Plantilla</p><p id="kpi-mios-total" class="text-xl font-bold text-gray-800">0</p></div>
-                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Reportados</p><p id="kpi-mios-listos" class="text-xl font-bold text-green-600">0</p></div>
-                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Faltantes</p><p id="kpi-mios-faltan" class="text-xl font-bold text-red-500">0</p></div>
+                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Días Asignados</p><p id="kpi-mios-total" class="text-xl font-bold text-gray-800">0</p></div>
+                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Días Listos</p><p id="kpi-mios-listos" class="text-xl font-bold text-green-600">0</p></div>
+                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Días Faltantes</p><p id="kpi-mios-faltan" class="text-xl font-bold text-red-500">0</p></div>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-2"><div id="kpi-mios-bar" class="bg-blue-500 h-2 rounded-full" style="width: 0%"></div></div>
                     </div>
                     <div id="card-terceros" class="bg-white rounded-xl shadow-md p-5 border border-purple-100 border-t-4 border-t-purple-500 hidden">
                         <h2 class="text-sm font-bold text-purple-800 mb-3 uppercase tracking-wider"><i class="fa-solid fa-users mr-2"></i>Gestión de Terceros (Auditoría)</h2>
                         <div class="flex justify-between items-center mb-3">
-                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Plantilla</p><p id="kpi-otros-total" class="text-xl font-bold text-gray-800">0</p></div>
-                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Reportados</p><p id="kpi-otros-listos" class="text-xl font-bold text-green-600">0</p></div>
-                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Faltantes</p><p id="kpi-otros-faltan" class="text-xl font-bold text-orange-500">0</p></div>
+                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Días Asignados</p><p id="kpi-otros-total" class="text-xl font-bold text-gray-800">0</p></div>
+                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Días Listos</p><p id="kpi-otros-listos" class="text-xl font-bold text-green-600">0</p></div>
+                            <div class="text-center"><p class="text-xs text-gray-500 font-bold">Días Faltantes</p><p id="kpi-otros-faltan" class="text-xl font-bold text-orange-500">0</p></div>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-2"><div id="kpi-otros-bar" class="bg-purple-500 h-2 rounded-full" style="width: 0%"></div></div>
                     </div>
@@ -288,7 +288,7 @@
 
             <form id="form-mov-transferencia" onsubmit="procesarTransferencia(event)" class="space-y-4 hidden">
                 <div><label class="block text-xs font-bold text-gray-700">P00 a Transferir</label><input type="text" id="trans_p00" class="w-full p-2 border rounded text-sm outline-none" required></div>
-                <div><label class="block text-xs font-bold text-gray-700">Fecha Efectiva</label><input type="date" id="trans_fecha" class="w-full p-2 border rounded text-sm outline-none" required></div>
+                <div><label class="block text-xs font-bold text-gray-700">Fecha Efectiva del Cambio</label><input type="date" id="trans_fecha" class="w-full p-2 border rounded text-sm outline-none" required></div>
                 <div class="border-t pt-2 mt-2">
                     <label class="block text-xs font-bold text-gray-700 mb-1">Nueva Estructura Destino</label>
                     <select id="trans_ua" class="w-full p-2 border rounded text-sm outline-none mb-2" onchange="actualizarGerenciasTrans()" required><option value="">Seleccione Nueva VP</option></select>
@@ -341,7 +341,7 @@
                 </select>
                 <div class="relative w-full">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><i class="fa-solid fa-magnifying-glass text-gray-400"></i></div>
-                    <input type="text" id="filtro-historico" placeholder="Buscar por Nombre, P00 o Gerencia..." class="pl-10 w-full p-2 border border-gray-300 rounded outline-none focus:border-blue-500 text-sm" onkeyup="filtrarHistoricoUI()">
+                    <input type="text" id="filtro-historico" placeholder="Buscar trabajador por nombre o P00..." class="pl-10 w-full p-2 border border-gray-300 rounded outline-none focus:border-blue-500 text-sm" onkeyup="filtrarHistoricoUI()">
                 </div>
             </div>
 
@@ -452,6 +452,7 @@
                     const est = (emp.asistencia[f]) ? emp.asistencia[f].estatus : "";
                     const aus = semanaData.ausentismos.find(a => a.p00 === emp.p00 && f >= a.fecha_inicio && f <= a.fecha_fin);
                     if (aus) fila.push(aus.tipo_ausentismo.toUpperCase());
+                    else if (f < emp.edit_start || f > emp.edit_end) fila.push("TRANSF.");
                     else if (est === "") fila.push("-");
                     else if (est === "Asistencia Normal") fila.push("NORMAL");
                     else if (est === "Falta Injustificada") fila.push("FALTA");
@@ -474,7 +475,6 @@
                 const res = await fetch(`${API_BASE}/api/mi-asistencia/${currentUser}`);
                 const data = await res.json();
                 
-                // MODO SEMANA CERRADA (BLOQUEO EN CASCADA)
                 if(data.bloqueado_por_envio) {
                     document.getElementById('panel-semana-cerrada').classList.remove('hidden');
                     document.getElementById('contenedor-edicion-activa').classList.add('hidden');
@@ -482,7 +482,6 @@
                     return;
                 }
 
-                // MODO EDICIÓN ACTIVA
                 document.getElementById('panel-semana-cerrada').classList.add('hidden');
                 document.getElementById('contenedor-edicion-activa').classList.remove('hidden');
                 document.getElementById('panel-progreso-global').classList.remove('hidden');
@@ -508,8 +507,8 @@
 
                 tbodyMios.innerHTML = ''; tbodyOtros.innerHTML = '';
                 
-                let miosTotal = 0; let miosLlenos = 0; let miosFaltan = 0;
-                let otrosTotal = 0; let otrosLlenos = 0; let otrosFaltan = 0;
+                let miosDiasTot = 0; let miosLlenos = 0; let miosFaltan = 0;
+                let otrosDiasTot = 0; let otrosLlenos = 0; let otrosFaltan = 0;
 
                 data.empleados.forEach(emp => {
                     const tr = document.createElement('tr'); tr.className = "hover:bg-blue-50 border-b border-gray-100 fila-empleado-dinamica";
@@ -521,24 +520,32 @@
                         <div class="flex items-center justify-between"><div class="truncate w-44" title="${emp.nombres_apellidos}">${emp.nombres_apellidos}</div>${candado}</div>
                         <div class="flex items-center text-[10px] text-gray-500 mt-1 truncate w-44" title="${emp.gerencia}"><span class="text-blue-600 bg-blue-50 px-1 rounded mr-1">P00: ${emp.p00}</span> <span class="truncate">${emp.gerencia}</span>${btnRemover}</div></td>`;
                     
+                    let diasQueLeTocan = 0;
                     let empLlenos = 0;
 
                     fechasGlobal.forEach(f => {
                         const td = document.createElement('td'); td.className = "px-2 py-3 border-r";
                         const estActual = (emp.asistencia[f]) ? emp.asistencia[f].estatus : "";
                         const ausentismoActivo = semanaData.ausentismos.find(a => a.p00 === emp.p00 && f >= a.fecha_inicio && f <= a.fecha_fin);
+                        
+                        let en_rango = (f >= emp.edit_start && f <= emp.edit_end);
+                        if (en_rango) {
+                            diasQueLeTocan++;
+                            if (estActual !== "" || ausentismoActivo) empLlenos++;
+                        }
+                        
                         const select = document.createElement('select'); select.className = "block w-full text-[11px] border border-gray-300 rounded p-1 bg-gray-50 outline-none transition";
                         
                         if (ausentismoActivo) {
                             select.disabled = true; select.title = "Cargado por RRHH"; select.classList.add("cursor-not-allowed", "opacity-100", "bg-purple-100", "text-purple-800", "font-bold", "border-purple-300", "uppercase");
                             const opt = document.createElement('option'); opt.value = ausentismoActivo.tipo_ausentismo; opt.innerText = ausentismoActivo.tipo_ausentismo.toUpperCase(); opt.selected = true; select.appendChild(opt);
-                            empLlenos++;
                         } else if(estActual === "Egresado") {
                             select.disabled = true; select.classList.add("cursor-not-allowed", "opacity-100", "bg-gray-200", "text-gray-800", "font-bold", "border-gray-400", "uppercase");
                             const opt = document.createElement('option'); opt.value = "Egresado"; opt.innerText = "EGRESADO"; opt.selected = true; select.appendChild(opt);
-                            empLlenos++;
+                        } else if (!en_rango && emp.editable) {
+                            select.disabled = true; select.title = "Día transferido a otra unidad"; select.classList.add("cursor-not-allowed", "opacity-75", "bg-gray-100");
+                            const opt = document.createElement('option'); opt.value = estActual; opt.innerText = estActual ? estActual.toUpperCase() : "TRANSFERIDO"; opt.selected = true; select.appendChild(opt);
                         } else {
-                            if(estActual !== "") empLlenos++;
                             if(!emp.editable) { select.disabled = true; select.classList.add("cursor-not-allowed", "opacity-90"); }
                             ESTATUS_PERMITIDOS.forEach(est => {
                                 if(est === "Egresado") return;
@@ -551,21 +558,26 @@
                             else if(estActual === "Teletrabajo") select.classList.add("bg-cyan-50", "text-cyan-700", "font-bold", "border-cyan-300");
                             else if(["Reposo", "Vacaciones", "Permiso otorgado"].includes(estActual)) select.classList.add("bg-purple-50", "text-purple-700", "font-bold", "border-purple-300");
                             if(estActual === "" && !emp.editable) select.classList.add("bg-red-50", "text-red-500", "font-bold", "border-red-400");
-                            if (emp.editable) select.onchange = (e) => registrarDiaVuelo(emp.p00, f, e.target.value, select);
+                            if (emp.editable && en_rango) select.onchange = (e) => registrarDiaVuelo(emp.p00, f, e.target.value, select);
                         }
                         td.appendChild(select); tr.appendChild(td);
                     });
 
                     tr.setAttribute('data-nombre', emp.nombres_apellidos.toLowerCase());
                     tr.setAttribute('data-p00', emp.p00);
-                    tr.setAttribute('data-faltante', empLlenos < 7 ? 'si' : 'no');
+                    tr.setAttribute('data-faltante', empLlenos < diasQueLeTocan ? 'si' : 'no');
 
-                    if (emp.editable) { tbodyMios.appendChild(tr); miosTotal++; miosLlenos += empLlenos; miosFaltan += (7 - empLlenos); } 
-                    else { tbodyOtros.appendChild(tr); otrosTotal++; otrosLlenos += empLlenos; otrosFaltan += (7 - empLlenos); }
+                    if (emp.editable) { 
+                        tbodyMios.appendChild(tr); 
+                        miosDiasTot += diasQueLeTocan; miosLlenos += empLlenos; miosFaltan += (diasQueLeTocan - empLlenos); 
+                    } else { 
+                        tbodyOtros.appendChild(tr); 
+                        otrosDiasTot += diasQueLeTocan; otrosLlenos += empLlenos; otrosFaltan += (diasQueLeTocan - empLlenos); 
+                    }
                 });
 
-                if (miosTotal === 0) tbodyMios.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-gray-500">No ha reclamado personal. Use el panel superior para vincular sus P00.</td></tr>';
-                if (otrosTotal === 0) tbodyOtros.innerHTML = '<tr><td colspan="8" class="px-6 py-6 text-center text-gray-500">No hay personal externo en su jurisdicción.</td></tr>';
+                if (miosDiasTot === 0) tbodyMios.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-gray-500">No ha reclamado personal. Use el panel superior para vincular sus P00.</td></tr>';
+                if (otrosDiasTot === 0) tbodyOtros.innerHTML = '<tr><td colspan="8" class="px-6 py-6 text-center text-gray-500">No hay personal externo en su jurisdicción.</td></tr>';
                 if (data.empleados.length > 0) barraHerramientas.classList.remove('hidden');
                 
                 if (currentRole === 'Cierre de Unidad') { 
@@ -573,22 +585,22 @@
                     document.getElementById('card-terceros').classList.remove('hidden'); 
                     document.getElementById('panel-cierre-unidad').classList.remove('hidden');
                     document.getElementById('panel-cierre-unidad').classList.add('flex');
-                    if(otrosTotal > 0) document.getElementById('btn-toggle-wrapper').classList.remove('hidden'); 
+                    if(otrosDiasTot > 0) document.getElementById('btn-toggle-wrapper').classList.remove('hidden'); 
                 } else if(currentRole === 'Reportador') {
                     document.getElementById('panel-solo-lectura').classList.remove('hidden');
                 }
 
-                document.getElementById('kpi-mios-total').innerText = miosTotal;
-                document.getElementById('kpi-mios-listos').innerText = Math.floor(miosLlenos/7);
-                document.getElementById('kpi-mios-faltan').innerText = Math.ceil(miosFaltan/7);
-                document.getElementById('kpi-mios-bar').style.width = (miosTotal > 0 ? (miosLlenos / (miosTotal*7))*100 : 0) + '%';
+                document.getElementById('kpi-mios-total').innerText = miosDiasTot;
+                document.getElementById('kpi-mios-listos').innerText = miosLlenos;
+                document.getElementById('kpi-mios-faltan').innerText = miosFaltan;
+                document.getElementById('kpi-mios-bar').style.width = (miosDiasTot > 0 ? (miosLlenos / miosDiasTot)*100 : 0) + '%';
                 
-                document.getElementById('kpi-otros-total').innerText = otrosTotal;
-                document.getElementById('kpi-otros-listos').innerText = Math.floor(otrosLlenos/7);
-                document.getElementById('kpi-otros-faltan').innerText = Math.ceil(otrosFaltan/7);
-                document.getElementById('kpi-otros-bar').style.width = (otrosTotal > 0 ? (otrosLlenos / (otrosTotal*7))*100 : 0) + '%';
+                document.getElementById('kpi-otros-total').innerText = otrosDiasTot;
+                document.getElementById('kpi-otros-listos').innerText = otrosLlenos;
+                document.getElementById('kpi-otros-faltan').innerText = otrosFaltan;
+                document.getElementById('kpi-otros-bar').style.width = (otrosDiasTot > 0 ? (otrosLlenos / otrosDiasTot)*100 : 0) + '%';
 
-                const totalGlobalDias = (miosTotal + otrosTotal) * 7;
+                const totalGlobalDias = miosDiasTot + otrosDiasTot;
                 const llenosGlobalDias = miosLlenos + otrosLlenos;
                 
                 const bar = document.getElementById('progress-bar-global'); const txt = document.getElementById('progress-text-global');
