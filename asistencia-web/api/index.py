@@ -8,10 +8,11 @@ import os
 import io
 import pandas as pd
 from datetime import datetime, timedelta
+
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title="Asistencia Movilnet ERP v6.3")
+app = FastAPI(title="Asistencia Movilnet ERP v6.4")
 
 app.add_middleware(
     CORSMiddleware,
@@ -34,7 +35,6 @@ def get_db():
     finally:
         conn.close()
 
-# Autoconfiguración de Columnas para Transferencias
 def ensure_schema():
     db_url = os.environ.get("DATABASE_URL")
     if not db_url: return
@@ -73,11 +73,21 @@ def is_jurisdiction_locked(cursor, username, semana_ini, semana_fin):
     cursor.execute("SELECT rol, unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (username,))
     usr = cursor.fetchone()
     if not usr or usr['rol'] == 'Recursos Humanos': return False
+    
     query = """
-        SELECT 1 FROM estado_entregas e JOIN usuarios u ON e.unidad_nombre = u.username
-        WHERE e.semana_inicio = %s AND e.semana_fin = %s AND u.unidad_administrativa = %s AND (u.gerencia_general = '' OR u.gerencia_general IS NULL OR u.gerencia_general = %s)
+        SELECT 1 FROM estado_entregas e
+        JOIN usuarios u ON e.unidad_nombre = u.username
+        WHERE e.semana_inicio = %s AND e.semana_fin = %s
+        AND u.unidad_administrativa = %s
     """
-    cursor.execute(query, (semana_ini, semana_fin, usr['unidad_administrativa'], usr['gerencia_general']))
+    params = [semana_ini, semana_fin, usr['unidad_administrativa']]
+    if usr['gerencia_general']:
+        query += " AND u.gerencia_general = %s"
+        params.append(usr['gerencia_general'])
+    else:
+        query += " AND (u.gerencia_general = '' OR u.gerencia_general IS NULL)"
+        
+    cursor.execute(query, params)
     return bool(cursor.fetchone())
 
 # ==========================================
@@ -133,6 +143,8 @@ async def cargar_organizacion(file: UploadFile = File(...), db = Depends(get_db)
     try:
         contents = await file.read()
         df = pd.read_excel(io.BytesIO(contents))
+        if 'Unidad_Administrativa' not in df.columns or 'Gerencia_General' not in df.columns:
+            raise HTTPException(status_code=400, detail="Faltan columnas requeridas.")
         cargas = 0
         for _, fila in df.iterrows():
             ua = str(fila['Unidad_Administrativa']).strip(); gg = str(fila['Gerencia_General']).strip()
@@ -291,7 +303,6 @@ def rrhh_transferencia(req: TransferenciaRequest, db = Depends(get_db)):
 
     cursor.execute("INSERT INTO organizacion (unidad_administrativa, gerencia_general) VALUES (%s, %s) ON CONFLICT DO NOTHING", (req.unidad_administrativa, req.gerencia_general))
     
-    # Pivote de Transferencia
     cursor.execute("""
         UPDATE empleados_maestro SET 
         unidad_anterior = %s, gerencia_anterior = %s, reportador_anterior = %s, fecha_transferencia = %s,
@@ -301,7 +312,7 @@ def rrhh_transferencia(req: TransferenciaRequest, db = Depends(get_db)):
     
     cursor.execute("DELETE FROM plantilla_local WHERE p00 = %s", (req.p00,)) 
     db.commit()
-    return {"success": True, "mensaje": f"Trabajador {emp['nombres_apellidos']} transferido exitosamente.\nLa nueva unidad ya puede vincularlo a su plantilla y no se solaparán los días con el jefe anterior."}
+    return {"success": True, "mensaje": f"Trabajador {emp['nombres_apellidos']} transferido exitosamente.\nLa nueva unidad ya puede vincularlo a su plantilla."}
 
 # ==========================================
 # 3. GESTIÓN AUTÓNOMA DE PERSONAL (UNIDADES)
@@ -331,6 +342,44 @@ def agregar_empleado_unidad(req: EmpleadoUnidadRequest, db = Depends(get_db)):
     except Exception as e:
         db.rollback(); raise HTTPException(status_code=400, detail="Error vinculando.")
 
+@app.post("/api/unidad/cargar-empleados-excel")
+async def cargar_empleados_excel_unidad(username: str = Form(...), file: UploadFile = File(...), db = Depends(get_db)):
+    cursor = db.cursor()
+    cursor.execute("SELECT unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (username,))
+    usr = cursor.fetchone()
+    
+    try:
+        contents = await file.read()
+        df = pd.read_excel(io.BytesIO(contents))
+        if 'P00' not in df.columns: raise HTTPException(status_code=400, detail="Falta columna 'P00'.")
+
+        cargas, errores = 0, []
+        for _, fila in df.iterrows():
+            p00 = str(fila['P00']).strip()
+            if p00 and p00 != 'nan':
+                cursor.execute("SELECT username FROM plantilla_local WHERE p00 = %s", (p00,))
+                reclamado_por = cursor.fetchone()
+                if reclamado_por and reclamado_por['username'] != username: errores.append(f"{p00} (Ya reportado)"); continue
+
+                cursor.execute("SELECT unidad_administrativa, gerencia_general, estatus FROM empleados_maestro WHERE p00 = %s", (p00,))
+                emp = cursor.fetchone()
+                
+                if not emp: errores.append(f"{p00} (No Existe)"); continue
+                if emp['estatus'] == 'Inactivo': errores.append(f"{p00} (Egresado)"); continue
+                if usr['unidad_administrativa'] and emp['unidad_administrativa'] != usr['unidad_administrativa']: errores.append(f"{p00} (Otra VP)"); continue
+                if usr['gerencia_general'] and emp['gerencia_general'] != usr['gerencia_general']: errores.append(f"{p00} (Otra GG)"); continue
+                    
+                cursor.execute("INSERT INTO plantilla_local (username, p00) VALUES (%s, %s) ON CONFLICT DO NOTHING", (username, p00))
+                cargas += 1
+                
+        db.commit()
+        msg = f"Se integraron {cargas} empleados."
+        if errores: msg += f"\nRechazados o Duplicados: {len(errores)}"
+        return {"success": True, "mensaje": msg}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(e))
+
 @app.delete("/api/unidad/remover-empleado/{username}/{p00}")
 def remover_empleado_unidad(username: str, p00: str, db = Depends(get_db)):
     cursor = db.cursor()
@@ -339,7 +388,7 @@ def remover_empleado_unidad(username: str, p00: str, db = Depends(get_db)):
     return {"success": True, "mensaje": "Empleado desvinculado correctamente."}
 
 # ==========================================
-# 4. CONTROL DE ASISTENCIA DIARIA (RANGO DE FECHAS)
+# 4. CONTROL DE ASISTENCIA DIARIA 
 # ==========================================
 @app.get("/api/mi-asistencia/{username}")
 def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
@@ -359,7 +408,6 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
     cursor.execute("SELECT p00 FROM plantilla_local WHERE username = %s", (username,))
     mis_p00s = {row['p00'] for row in cursor.fetchall()}
 
-    # Lógica de Pivote de Transferencias: Traer Activos, Egresados en la semana, Y transferidos en la semana
     query_emp = """
         SELECT e.p00, e.nombres_apellidos, e.cedula, e.unidad_administrativa, e.gerencia_general, 
                e.fecha_transferencia, e.unidad_anterior, e.gerencia_anterior, e.reportador_anterior,
@@ -374,13 +422,26 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
         query_emp += " AND (e.p00 IN (SELECT p00 FROM plantilla_local WHERE username = %s) OR (e.reportador_anterior = %s AND e.fecha_transferencia BETWEEN %s AND %s))"
         params.extend([username, username, semana_ini, semana_fin])
     else:
+        # Cierre de Unidad: Traer la unidad actual, las transferencias de salida y la plantilla explícita
+        conds = []
+        p = []
         if usr['unidad_administrativa']:
-            query_emp += """ AND (
-                (e.unidad_administrativa = %s AND (e.gerencia_general = '' OR e.gerencia_general IS NULL OR e.gerencia_general = %s))
-                OR
-                (e.unidad_anterior = %s AND (e.gerencia_anterior = '' OR e.gerencia_anterior IS NULL OR e.gerencia_anterior = %s) AND e.fecha_transferencia BETWEEN %s AND %s)
-            )"""
-            params.extend([usr['unidad_administrativa'], usr['gerencia_general'], usr['unidad_administrativa'], usr['gerencia_general'], semana_ini, semana_fin])
+            if usr['gerencia_general']:
+                conds.append("(e.unidad_administrativa = %s AND e.gerencia_general = %s)")
+                p.extend([usr['unidad_administrativa'], usr['gerencia_general']])
+                conds.append("(e.unidad_anterior = %s AND e.gerencia_anterior = %s AND e.fecha_transferencia BETWEEN %s AND %s)")
+                p.extend([usr['unidad_administrativa'], usr['gerencia_general'], semana_ini, semana_fin])
+            else:
+                conds.append("(e.unidad_administrativa = %s)")
+                p.append(usr['unidad_administrativa'])
+                conds.append("(e.unidad_anterior = %s AND e.fecha_transferencia BETWEEN %s AND %s)")
+                p.extend([usr['unidad_administrativa'], semana_ini, semana_fin])
+            
+            conds.append("(e.p00 IN (SELECT p00 FROM plantilla_local WHERE username = %s))")
+            p.append(username)
+            
+            query_emp += " AND (" + " OR ".join(conds) + ")"
+            params.extend(p)
         
     query_emp += " ORDER BY e.gerencia_general ASC, e.nombres_apellidos ASC, a.fecha ASC"
     
@@ -420,7 +481,7 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
             empleados_dict[p00] = {
                 "p00": p00, "nombres_apellidos": reg['nombres_apellidos'] + (" (Egresado)" if reg['maestro_estatus'] == 'Inactivo' else ""), 
                 "unidad": reg['unidad_administrativa'], "gerencia": gerencia_mostrar, 
-                "editable": True if usr['rol'] == 'Reportador' else False,
+                "editable": True if usr['rol'] == 'Reportador' else (p00 in mis_p00s),
                 "edit_start": edit_start, "edit_end": edit_end,
                 "asistencia": {}
             }
@@ -442,7 +503,6 @@ def guardar_dia(req: AsistenciaDiaRequest, db = Depends(get_db)):
     if config and config['estatus'] == 'Cerrada': raise HTTPException(status_code=403, detail="Semana cerrada.")
     if is_jurisdiction_locked(cursor, req.username, config['semana_inicio'], config['semana_fin']): raise HTTPException(status_code=403, detail="Bloqueado: La Jefatura ya certificó.")
     
-    # La seguridad de fecha y claims se asume validadas en UI, pero la base inserta
     if req.estatus == "": cursor.execute("DELETE FROM asistencia_diaria WHERE p00 = %s AND fecha = %s", (req.p00, req.fecha))
     else: cursor.execute("INSERT INTO asistencia_diaria (p00, fecha, estatus, motivo) VALUES (%s, %s, %s, %s) ON CONFLICT (p00, fecha) DO UPDATE SET estatus = EXCLUDED.estatus, motivo = EXCLUDED.motivo", (req.p00, req.fecha, req.estatus, req.motivo))
     db.commit()
@@ -470,6 +530,7 @@ def guardar_rango(req: RangoAsistenciaRequest, db = Depends(get_db)):
 
 @app.post("/api/enviar-a-rrhh")
 def enviar_a_rrhh(req: EnvioRRHHRequest, db = Depends(get_db)):
+    if req.rol_usuario == "Reportador": raise HTTPException(status_code=403, detail="Perfil no autorizado para certificar.")
     cursor = db.cursor()
     cursor.execute("SELECT semana_inicio, semana_fin FROM configuracion_sistema WHERE id = 1")
     config = cursor.fetchone()
