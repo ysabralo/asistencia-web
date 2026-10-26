@@ -13,7 +13,7 @@ import openpyxl
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title="Asistencia Movilnet ERP v7.0 (Optimized)")
+app = FastAPI(title="Asistencia Movilnet ERP v6.9")
 
 app.add_middleware(
     CORSMiddleware,
@@ -108,7 +108,6 @@ def is_jurisdiction_locked(cursor, username, semana_ini, semana_fin):
     return bool(cursor.fetchone())
 
 def read_excel_to_dicts(contents):
-    """ Lector Ligero de Excel usando OpenPyXL """
     wb = openpyxl.load_workbook(io.BytesIO(contents), data_only=True)
     sheet = wb.active
     headers = [str(cell.value).strip() if cell.value is not None else "" for cell in sheet[1]]
@@ -122,7 +121,7 @@ def read_excel_to_dicts(contents):
     return data, headers
 
 # ==========================================
-# 1. GESTIÓN DE USUARIOS Y ESTRUCTURA
+# 1. GESTIÓN DE USUARIOS
 # ==========================================
 @app.post("/api/login")
 def login(req: LoginRequest, db = Depends(get_db)):
@@ -164,6 +163,9 @@ def eliminar_usuario(username: str, db = Depends(get_db)):
     db.commit()
     return {"success": True, "mensaje": "Usuario eliminado"}
 
+# ==========================================
+# 2. RRHH - ESTRUCTURA Y CARGA MASIVA
+# ==========================================
 @app.post("/api/rrhh/cargar-organizacion")
 async def cargar_organizacion(file: UploadFile = File(...), db = Depends(get_db)):
     cursor = db.cursor()
@@ -194,8 +196,47 @@ def obtener_organizacion(db = Depends(get_db)):
         estructura[ua].append(gg)
     return {"success": True, "estructura": estructura}
 
+@app.post("/api/rrhh/carga-masiva-personal")
+async def carga_masiva_personal(file: UploadFile = File(...), db = Depends(get_db)):
+    cursor = db.cursor()
+    try:
+        contents = await file.read()
+        data, headers = read_excel_to_dicts(contents)
+        if 'P00' not in headers or 'Nombres_Apellidos' not in headers: 
+            raise HTTPException(status_code=400, detail="Faltan columnas requeridas (P00, Nombres_Apellidos).")
+        
+        cargas = 0
+        for fila in data:
+            p00 = str(fila.get('P00', '')).strip()
+            if not p00 or p00 == 'None': continue
+            
+            cedula = str(fila.get('Cedula', '')).strip()
+            nombres = str(fila.get('Nombres_Apellidos', '')).strip()
+            f_ing = parse_date(fila.get('Fecha_Ingreso'))
+            f_ing_str = f_ing.strftime('%Y-%m-%d') if f_ing else None
+            ua = str(fila.get('Unidad_Administrativa', '')).strip()
+            gg = str(fila.get('Gerencia_General', '')).strip()
+            
+            if ua and ua != 'None' and gg and gg != 'None':
+                cursor.execute("INSERT INTO organizacion (unidad_administrativa, gerencia_general) VALUES (%s, %s) ON CONFLICT DO NOTHING", (ua, gg))
+                
+            cursor.execute("""
+                INSERT INTO empleados_maestro (p00, cedula, nombres_apellidos, fecha_ingreso, unidad_administrativa, gerencia_general, estatus)
+                VALUES (%s, %s, %s, %s, %s, %s, 'Activo')
+                ON CONFLICT (p00) DO UPDATE SET 
+                unidad_administrativa = EXCLUDED.unidad_administrativa, 
+                gerencia_general = EXCLUDED.gerencia_general, 
+                estatus = 'Activo'
+            """, (p00, cedula, nombres, f_ing_str, ua, gg))
+            cargas += 1
+            
+        db.commit()
+        return {"success": True, "mensaje": f"Carga masiva completada.\n{cargas} trabajadores registrados/actualizados."}
+    except Exception as e:
+        db.rollback(); raise HTTPException(status_code=500, detail=str(e))
+
 # ==========================================
-# 2. RRHH - SEMANA Y MOVIMIENTOS
+# 3. RRHH - SEMANA Y MOVIMIENTOS
 # ==========================================
 @app.post("/api/rrhh/abrir-semana")
 def abrir_semana(req: SemanaRequest, db = Depends(get_db)):
@@ -345,10 +386,10 @@ def rrhh_transferencia(req: TransferenciaRequest, db = Depends(get_db)):
     """, (emp['unidad_administrativa'], emp['gerencia_general'], reportador_old, req.fecha_efectiva, req.unidad_administrativa, req.gerencia_general, req.p00))
     
     db.commit()
-    return {"success": True, "mensaje": f"Trabajador {emp['nombres_apellidos']} transferido exitosamente.\nLa nueva unidad ya puede vincularlo."}
+    return {"success": True, "mensaje": f"Trabajador {emp['nombres_apellidos']} transferido exitosamente.\nLa nueva unidad ya puede vincularlo, y la unidad antigua no lo perderá hasta el cierre."}
 
 # ==========================================
-# 3. GESTIÓN AUTÓNOMA DE PERSONAL (UNIDADES)
+# 4. GESTIÓN AUTÓNOMA DE PERSONAL (UNIDADES)
 # ==========================================
 @app.post("/api/unidad/agregar-empleado")
 def agregar_empleado_unidad(req: EmpleadoUnidadRequest, db = Depends(get_db)):
@@ -406,6 +447,7 @@ async def cargar_empleados_excel_unidad(username: str = Form(...), file: UploadF
     cursor = db.cursor()
     cursor.execute("SELECT semana_inicio, semana_fin, estatus FROM configuracion_sistema WHERE id = 1")
     config = cursor.fetchone()
+    
     cursor.execute("SELECT unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (username,))
     usr = cursor.fetchone()
     
@@ -468,7 +510,7 @@ def remover_empleado_unidad(username: str, p00: str, db = Depends(get_db)):
     return {"success": True, "mensaje": "Empleado desvinculado correctamente."}
 
 # ==========================================
-# 4. CONTROL DE ASISTENCIA DIARIA 
+# 5. CONTROL DE ASISTENCIA DIARIA 
 # ==========================================
 @app.get("/api/mi-asistencia/{username}")
 def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
@@ -512,6 +554,7 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
             params.extend([usr['unidad_administrativa'], usr['gerencia_general'], usr['unidad_administrativa'], usr['gerencia_general'], semana_ini, semana_fin])
         
     query_emp += " ORDER BY e.gerencia_general ASC, e.nombres_apellidos ASC, a.fecha ASC"
+    
     cursor.execute(query_emp, params)
     registros = cursor.fetchall()
     
@@ -526,6 +569,7 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
             transferido_esta_semana = check_transfer_in_week(reg['fecha_transferencia'], semana_ini, semana_fin)
 
             es_antiguo = False; es_nuevo = False
+            
             if transferido_esta_semana:
                 if reg['reportador_anterior'] == username: es_antiguo = True
                 elif clean_str(usr['unidad_administrativa']) == clean_str(reg['unidad_anterior']):
@@ -536,23 +580,23 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
             else:
                 es_nuevo = True
 
-            edit_start = semana_ini.strftime('%Y-%m-%d')
-            edit_end = semana_fin.strftime('%Y-%m-%d')
+            edit_start = semana_ini
+            edit_end = semana_fin
             gerencia_mostrar = reg['gerencia_general']
             
             if es_antiguo and not es_nuevo:
                 dt_trans = parse_date(reg['fecha_transferencia'])
-                edit_end = (dt_trans - timedelta(days=1)).strftime('%Y-%m-%d')
+                edit_end = dt_trans - timedelta(days=1)
                 gerencia_mostrar = reg['gerencia_anterior']
             elif es_nuevo and not es_antiguo:
                 if reg['fecha_transferencia']:
-                    edit_start = parse_date(reg['fecha_transferencia']).strftime('%Y-%m-%d')
+                    edit_start = parse_date(reg['fecha_transferencia'])
 
             empleados_dict[p00] = {
                 "p00": p00, "nombres_apellidos": reg['nombres_apellidos'] + (" (Egresado)" if reg['maestro_estatus'] == 'Inactivo' else ""), 
                 "unidad": reg['unidad_administrativa'], "gerencia": gerencia_mostrar, 
                 "editable": True if usr['rol'] == 'Reportador' else (p00 in mis_p00s),
-                "edit_start": edit_start, "edit_end": edit_end,
+                "edit_start": edit_start.strftime('%Y-%m-%d'), "edit_end": edit_end.strftime('%Y-%m-%d'),
                 "asistencia": {}
             }
         if reg['fecha']: 
@@ -612,7 +656,7 @@ def enviar_a_rrhh(req: EnvioRRHHRequest, db = Depends(get_db)):
     return {"success": True, "mensaje": "Reporte certificado y enviado a RRHH."}
 
 # ==========================================
-# 5. HISTÓRICO DE SEMANAS CERRADAS
+# 6. HISTÓRICO DE SEMANAS CERRADAS
 # ==========================================
 @app.get("/api/rrhh/semanas-cerradas")
 def rrhh_semanas_cerradas(db = Depends(get_db)):
@@ -677,7 +721,7 @@ def historico_semana(username: str, inicio: str, fin: str, db = Depends(get_db))
     return {"success": True, "fecha_inicio": inicio, "fecha_fin": fin, "empleados": list(empleados_dict.values())}
 
 # ==========================================
-# 6. MONITOREO RRHH Y DESCARGAS
+# 7. MONITOREO RRHH Y DESCARGAS
 # ==========================================
 @app.post("/api/rrhh/reversar-cierre")
 def reversar_cierre(req: ReversarRequest, db = Depends(get_db)):
@@ -685,8 +729,7 @@ def reversar_cierre(req: ReversarRequest, db = Depends(get_db)):
     cursor.execute("SELECT semana_inicio, semana_fin FROM configuracion_sistema WHERE id = 1")
     config = cursor.fetchone()
     if not config: raise HTTPException(status_code=400, detail="No hay semana activa.")
-    sem_ini = str(config['semana_inicio'])[:10]
-    sem_fin = str(config['semana_fin'])[:10]
+    sem_ini, sem_fin = str(config['semana_inicio'])[:10], str(config['semana_fin'])[:10]
 
     cursor.execute("SELECT username FROM usuarios WHERE rol = 'Cierre de Unidad' AND (CASE WHEN unidad_administrativa = 'Presidencia' THEN gerencia_general ELSE unidad_administrativa END) = %s", (req.jurisdiccion,))
     users = cursor.fetchall()
@@ -730,10 +773,8 @@ def monitoreo_entregas(db = Depends(get_db)):
     """
     cursor.execute(query, (sem_ini, sem_fin))
     entregas = cursor.fetchall()
-
     display_ini = parse_date(sem_ini).strftime('%d/%m/%Y')
     display_fin = parse_date(sem_fin).strftime('%d/%m/%Y')
-
     return {"semana_activa": True, "fecha_inicio": display_ini, "fecha_fin": display_fin, "entregas": entregas}
 
 def generar_excel_agrupado(df_detalle_records, nombre_archivo):
@@ -741,12 +782,10 @@ def generar_excel_agrupado(df_detalle_records, nombre_archivo):
     wb = openpyxl.Workbook()
     ws_det = wb.active
     ws_det.title = "Detalle_Asistencia"
-    
     ws_det.append(['Fecha', 'P00', 'Cédula', 'Nombres y Apellidos', 'Unidad Administrativa (VP)', 'Gerencia General', 'Estatus Asistencia', 'Motivo'])
     
     pagar_list = ["Asistencia Normal", "Vacaciones", "Dia Descanso Legal", "Dia Libre Compensatorio"]
     descontar_list = ["Teletrabajo", "Reposo", "Permiso otorgado", "Falta Injustificada", "Egresado"]
-    
     resumen = {}
     
     if not df_detalle_records:
@@ -754,31 +793,20 @@ def generar_excel_agrupado(df_detalle_records, nombre_archivo):
     else:
         for r in df_detalle_records:
             fecha_str = r['fecha'].strftime('%d/%m/%Y') if r.get('fecha') else ""
-            ws_det.append([
-                fecha_str, r['p00'], r['cedula'], r['nombres_apellidos'], 
-                r['unidad_administrativa'], r['gerencia_general'], 
-                r['estatus'], r['motivo']
-            ])
-            
+            ws_det.append([fecha_str, r['p00'], r['cedula'], r['nombres_apellidos'], r['unidad_administrativa'], r['gerencia_general'], r['estatus'], r['motivo']])
             key = (r['p00'], r['cedula'], r['nombres_apellidos'], r['unidad_administrativa'], r['gerencia_general'])
-            if key not in resumen:
-                resumen[key] = {'pagar': 0, 'descontar': 0}
-                
+            if key not in resumen: resumen[key] = {'pagar': 0, 'descontar': 0}
             est = r.get('estatus')
             if est in pagar_list: resumen[key]['pagar'] += 1
             if est in descontar_list: resumen[key]['descontar'] += 1
                 
     ws_res = wb.create_sheet(title="Resumen_Pago")
     ws_res.append(['P00', 'Cédula', 'Nombres y Apellidos', 'Unidad Administrativa (VP)', 'Gerencia General', 'Días a Pagar', 'Días a Descontar'])
-    
-    if not df_detalle_records:
-        ws_res.append(["No hay registros"])
+    if not df_detalle_records: ws_res.append(["No hay registros"])
     else:
-        for k, v in resumen.items():
-            ws_res.append([k[0], k[1], k[2], k[3], k[4], v['pagar'], v['descontar']])
+        for k, v in resumen.items(): ws_res.append([k[0], k[1], k[2], k[3], k[4], v['pagar'], v['descontar']])
             
-    wb.save(output)
-    output.seek(0)
+    wb.save(output); output.seek(0)
     headers = {'Content-Disposition': f'attachment; filename="{nombre_archivo}.xlsx"', 'Access-Control-Expose-Headers': 'Content-Disposition'}
     return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
 
