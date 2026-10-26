@@ -57,6 +57,7 @@
                 </div>
             </div>
 
+            <!-- CARTEL DE SEMANA CERRADA -->
             <div id="panel-semana-cerrada" class="bg-white rounded-xl shadow-md p-10 text-center border border-green-200 hidden mt-6">
                 <div class="inline-block p-4 bg-green-50 rounded-full mb-4 shadow-sm border border-green-100"><i class="fa-solid fa-check-double text-5xl text-green-600"></i></div>
                 <h2 class="text-2xl font-bold text-gray-800 mb-2">Semana Certificada Exitosamente</h2>
@@ -66,6 +67,7 @@
                 </button>
             </div>
 
+            <!-- CONTENEDOR DE EDICIÓN ACTIVA -->
             <div id="contenedor-edicion-activa" class="space-y-6">
                 <div id="panel-resumen-ejecutivo" class="grid grid-cols-1 md:grid-cols-2 gap-6 hidden">
                     <div class="bg-white rounded-xl shadow-md p-5 border border-blue-100 border-t-4 border-t-blue-500">
@@ -174,6 +176,7 @@
             </div>
             
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- 1. APERTURAR SEMANA -->
                 <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                     <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-calendar-plus text-blue-600 mr-2"></i>1. Aperturar Semana</h2>
                     <div class="space-y-3 mb-4">
@@ -183,6 +186,7 @@
                     <button onclick="aperturarSemanaRRHH()" class="w-full bg-blue-600 text-white py-2 rounded-lg font-bold hover:bg-blue-700 transition shadow">Abrir Nueva Semana</button>
                 </div>
 
+                <!-- 2. MOVIMIENTOS Y ABSENTISMOS -->
                 <div class="space-y-6">
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                         <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-users-gear text-blue-600 mr-2"></i>2. Movimientos de Personal</h2>
@@ -197,14 +201,23 @@
                     </div>
                 </div>
 
+                <!-- 3. ESTRUCTURA Y USUARIOS -->
                 <div class="space-y-6">
+                    <!-- CARGA MASIVA DE PERSONAL -->
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-                        <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-sitemap text-blue-600 mr-2"></i>4. Estructura Oficial</h2>
+                        <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-users text-blue-600 mr-2"></i>4. Carga Masiva (Inicial)</h2>
+                        <input type="file" id="file-masiva" accept=".xlsx" class="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:font-bold file:bg-gray-100 file:text-gray-700 mb-2 border border-gray-300"/>
+                        <button onclick="cargarMasivaPersonalRRHH()" class="w-full bg-blue-600 text-white py-1.5 rounded text-xs font-bold hover:bg-blue-700 transition shadow">Cargar Personal Base</button>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
+                        <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-sitemap text-blue-600 mr-2"></i>5. Estructura Oficial</h2>
                         <input type="file" id="file-estructura" accept=".xlsx" class="block w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:font-bold file:bg-gray-100 file:text-gray-700 mb-2 border border-gray-300"/>
                         <button onclick="importarEstructuraRRHH()" class="w-full bg-blue-600 text-white py-1.5 rounded text-xs font-bold hover:bg-blue-700 transition shadow">Actualizar Estructura</button>
                     </div>
+
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
-                        <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-key text-blue-600 mr-2"></i>5. Accesos</h2>
+                        <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-key text-blue-600 mr-2"></i>6. Accesos</h2>
                         <form id="form-usuarios" onsubmit="crearUsuario(event)" class="space-y-3">
                             <div class="flex gap-2"><input type="text" id="usr_nombre" placeholder="Login" class="w-full p-2 text-xs bg-gray-50 border rounded" required><input type="password" id="usr_pass" placeholder="Pass" class="w-full p-2 text-xs bg-gray-50 border rounded" required></div>
                             <select id="usr_rol" class="w-full p-2 text-xs bg-gray-50 border rounded" required><option value="">-- Perfil --</option><option value="Recursos Humanos">RRHH</option><option value="Cierre de Unidad">Cierre de Unidad</option><option value="Reportador">Reportador</option></select>
@@ -380,8 +393,7 @@
                     if(currentRole === "Recursos Humanos") {
                         mostrarVista('view-rrhh'); cargarEstructuraSelects(); cargarMonitoreoRRHH(); cargarUsuariosRRHH();
                     } else {
-                        mostrarVista('view-unidad');
-                        cargarDatosUnidad();
+                        mostrarVista('view-unidad'); cargarDatosUnidad();
                     }
                 } else { err.innerText = data.detail || "Error de credenciales"; err.classList.remove('hidden'); }
             } catch (error) { err.innerText = "Falla de red contactando al ERP."; err.classList.remove('hidden'); }
@@ -577,19 +589,13 @@
                     document.getElementById('panel-solo-lectura').classList.remove('hidden');
                 }
 
-                document.getElementById('kpi-mios-total').innerText = miosTotal;
-                document.getElementById('kpi-mios-listos').innerText = miosListos;
-                document.getElementById('kpi-mios-faltan').innerText = miosFaltan;
+                document.getElementById('kpi-mios-total').innerText = miosTotal; document.getElementById('kpi-mios-listos').innerText = miosListos; document.getElementById('kpi-mios-faltan').innerText = miosFaltan;
                 document.getElementById('kpi-mios-bar').style.width = (miosTotal > 0 ? (miosListos / miosTotal)*100 : 0) + '%';
                 
-                document.getElementById('kpi-otros-total').innerText = otrosTotal;
-                document.getElementById('kpi-otros-listos').innerText = otrosListos;
-                document.getElementById('kpi-otros-faltan').innerText = otrosFaltan;
+                document.getElementById('kpi-otros-total').innerText = otrosTotal; document.getElementById('kpi-otros-listos').innerText = otrosListos; document.getElementById('kpi-otros-faltan').innerText = otrosFaltan;
                 document.getElementById('kpi-otros-bar').style.width = (otrosTotal > 0 ? (otrosListos / otrosTotal)*100 : 0) + '%';
 
-                const totalGlobal = miosTotal + otrosTotal;
-                const listosGlobal = miosListos + otrosListos;
-                
+                const totalGlobal = miosTotal + otrosTotal; const listosGlobal = miosListos + otrosListos;
                 const bar = document.getElementById('progress-bar-global'); const txt = document.getElementById('progress-text-global');
                 const btn = document.getElementById('btn-enviar-rrhh'); 
                 
@@ -769,8 +775,18 @@
         }
 
         // ==========================================
-        // LÓGICA RRHH (MOVIMIENTOS INDIVIDUALES)
+        // LÓGICA RRHH (MOVIMIENTOS Y CARGA MASIVA)
         // ==========================================
+        async function cargarMasivaPersonalRRHH() {
+            const fileInput = document.getElementById('file-masiva'); if(!fileInput.files[0]) return alert("Seleccione el Excel con el personal base.");
+            const formData = new FormData(); formData.append("file", fileInput.files[0]);
+            try {
+                const res = await fetch(`${API_BASE}/api/rrhh/carga-masiva-personal`, { method: 'POST', body: formData });
+                const data = await res.json();
+                if(res.ok) { alert(data.mensaje); fileInput.value = ""; } else alert("Error: " + data.detail);
+            } catch(e) { alert("Error procesando archivo."); }
+        }
+
         function switchTabMov(tab) {
             document.getElementById('form-mov-ingreso').classList.add('hidden');
             document.getElementById('form-mov-transferencia').classList.add('hidden');
