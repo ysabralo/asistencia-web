@@ -6,14 +6,14 @@ from typing import Optional
 import hashlib
 import os
 import io
-import pandas as pd
-from datetime import datetime, timedelta
 import re
+from datetime import datetime, date, timedelta
 
+import openpyxl
 import psycopg
 from psycopg.rows import dict_row
 
-app = FastAPI(title="Asistencia Movilnet ERP v6.8")
+app = FastAPI(title="Asistencia Movilnet ERP v7.0 (Optimized)")
 
 app.add_middleware(
     CORSMiddleware,
@@ -65,10 +65,20 @@ class EnvioRRHHRequest(BaseModel): unidad_nombre: str; rol_usuario: str
 class EmpleadoUnidadRequest(BaseModel): username: str; p00: str
 class ReversarRequest(BaseModel): jurisdiccion: str
 class SemanaRequest(BaseModel): fecha_inicio: str; fecha_fin: str
-
 class IngresoRequest(BaseModel): p00: str; cedula: str; nombres_apellidos: str; fecha_ingreso: str; unidad_administrativa: str; gerencia_general: str
 class EgresoRequest(BaseModel): p00: str; fecha_egreso: str
 class TransferenciaRequest(BaseModel): p00: str; unidad_administrativa: str; gerencia_general: str; fecha_efectiva: str
+
+def parse_date(val):
+    if not val: return None
+    if isinstance(val, (datetime, date)):
+        return val.date() if isinstance(val, datetime) else val
+    val_str = str(val).strip()
+    if val_str in ('None', ''): return None
+    try: return datetime.strptime(val_str.split(" ")[0], "%Y-%m-%d").date()
+    except:
+        try: return datetime.strptime(val_str.split(" ")[0], "%d/%m/%Y").date()
+        except: return None
 
 def clean_str(s): 
     if not s: return ""
@@ -79,9 +89,9 @@ def clean_str(s):
 def check_transfer_in_week(emp_fecha, semana_inicio, semana_fin):
     if not emp_fecha: return False
     try:
-        dt_trans = pd.to_datetime(emp_fecha).date()
-        dt_ini = pd.to_datetime(str(semana_inicio)[:10]).date()
-        dt_fin = pd.to_datetime(str(semana_fin)[:10]).date()
+        dt_trans = parse_date(emp_fecha)
+        dt_ini = parse_date(semana_inicio)
+        dt_fin = parse_date(semana_fin)
         return dt_ini <= dt_trans <= dt_fin
     except:
         return False
@@ -97,8 +107,22 @@ def is_jurisdiction_locked(cursor, username, semana_ini, semana_fin):
     cursor.execute(query, (str(semana_ini)[:10], str(semana_fin)[:10], usr['unidad_administrativa'], usr['gerencia_general']))
     return bool(cursor.fetchone())
 
+def read_excel_to_dicts(contents):
+    """ Lector Ligero de Excel usando OpenPyXL """
+    wb = openpyxl.load_workbook(io.BytesIO(contents), data_only=True)
+    sheet = wb.active
+    headers = [str(cell.value).strip() if cell.value is not None else "" for cell in sheet[1]]
+    data = []
+    for row in sheet.iter_rows(min_row=2, values_only=True):
+        if not any(row): continue
+        fila = {}
+        for h, v in zip(headers, row):
+            if h: fila[h] = v
+        data.append(fila)
+    return data, headers
+
 # ==========================================
-# 1. GESTIÓN DE USUARIOS
+# 1. GESTIÓN DE USUARIOS Y ESTRUCTURA
 # ==========================================
 @app.post("/api/login")
 def login(req: LoginRequest, db = Depends(get_db)):
@@ -140,20 +164,18 @@ def eliminar_usuario(username: str, db = Depends(get_db)):
     db.commit()
     return {"success": True, "mensaje": "Usuario eliminado"}
 
-# ==========================================
-# 2. RRHH - ESTRUCTURA Y APERTURA DE SEMANA
-# ==========================================
 @app.post("/api/rrhh/cargar-organizacion")
 async def cargar_organizacion(file: UploadFile = File(...), db = Depends(get_db)):
     cursor = db.cursor()
     try:
         contents = await file.read()
-        df = pd.read_excel(io.BytesIO(contents))
-        if 'Unidad_Administrativa' not in df.columns or 'Gerencia_General' not in df.columns: raise HTTPException(status_code=400, detail="Faltan columnas requeridas.")
+        data, headers = read_excel_to_dicts(contents)
+        if 'Unidad_Administrativa' not in headers or 'Gerencia_General' not in headers: raise HTTPException(status_code=400, detail="Faltan columnas requeridas.")
         cargas = 0
-        for _, fila in df.iterrows():
-            ua = str(fila['Unidad_Administrativa']).strip(); gg = str(fila['Gerencia_General']).strip()
-            if ua and ua != 'nan' and gg and gg != 'nan':
+        for fila in data:
+            ua = str(fila.get('Unidad_Administrativa', '')).strip()
+            gg = str(fila.get('Gerencia_General', '')).strip()
+            if ua and ua != 'None' and gg and gg != 'None':
                 cursor.execute("INSERT INTO organizacion (unidad_administrativa, gerencia_general) VALUES (%s, %s) ON CONFLICT DO NOTHING", (ua, gg))
                 cargas += 1
         db.commit()
@@ -172,6 +194,9 @@ def obtener_organizacion(db = Depends(get_db)):
         estructura[ua].append(gg)
     return {"success": True, "estructura": estructura}
 
+# ==========================================
+# 2. RRHH - SEMANA Y MOVIMIENTOS
+# ==========================================
 @app.post("/api/rrhh/abrir-semana")
 def abrir_semana(req: SemanaRequest, db = Depends(get_db)):
     cursor = db.cursor()
@@ -190,13 +215,15 @@ def abrir_semana(req: SemanaRequest, db = Depends(get_db)):
     cursor.execute("SELECT p00, tipo_ausentismo, fecha_inicio, fecha_fin FROM ausentismos_rrhh")
     absentismos = cursor.fetchall()
     
-    d_ini_sem = pd.to_datetime(req.fecha_inicio)
-    d_fin_sem = pd.to_datetime(req.fecha_fin)
+    d_ini_sem = parse_date(req.fecha_inicio)
+    d_fin_sem = parse_date(req.fecha_fin)
     cargas = 0
     
     for a in absentismos:
-        start_date = max(pd.to_datetime(a['fecha_inicio']), d_ini_sem)
-        end_date = min(pd.to_datetime(a['fecha_fin']), d_fin_sem)
+        a_ini = parse_date(a['fecha_inicio'])
+        a_fin = parse_date(a['fecha_fin'])
+        start_date = max(a_ini, d_ini_sem)
+        end_date = min(a_fin, d_fin_sem)
         if start_date <= end_date:
             curr_date = start_date
             while curr_date <= end_date:
@@ -213,16 +240,21 @@ async def cargar_absentismos(file: UploadFile = File(...), db = Depends(get_db))
     config = cursor.fetchone()
     try:
         contents = await file.read()
-        df = pd.read_excel(io.BytesIO(contents))
+        data, headers = read_excel_to_dicts(contents)
+        
         nuevos, duplicados, inyectados = 0, 0, 0
         estatus_map = {"reposo": "Reposo", "vacaciones": "Vacaciones", "permiso otorgado": "Permiso otorgado"}
         
-        for _, fila in df.iterrows():
-            p00 = str(fila['P00']).strip()
-            if not p00 or p00 == 'nan': continue
+        for fila in data:
+            p00 = str(fila.get('P00', '')).strip()
+            if not p00 or p00 == 'None': continue
             
-            tipo = estatus_map.get(str(fila['Tipo_Ausentismo']).strip().lower(), str(fila['Tipo_Ausentismo']).strip().capitalize())
-            f_ini = pd.to_datetime(fila['Fecha_Inicio']); f_fin = pd.to_datetime(fila['Fecha_Fin'])
+            tipo_raw = str(fila.get('Tipo_Ausentismo', '')).strip().lower()
+            tipo = estatus_map.get(tipo_raw, str(fila.get('Tipo_Ausentismo', '')).strip().capitalize())
+            
+            f_ini = parse_date(fila.get('Fecha_Inicio'))
+            f_fin = parse_date(fila.get('Fecha_Fin'))
+            if not f_ini or not f_fin: continue
             
             cursor.execute("SELECT 1 FROM ausentismos_rrhh WHERE p00 = %s AND tipo_ausentismo = %s AND fecha_inicio = %s AND fecha_fin = %s", (p00, tipo, f_ini.strftime('%Y-%m-%d'), f_fin.strftime('%Y-%m-%d')))
             if cursor.fetchone(): duplicados += 1; continue
@@ -231,8 +263,10 @@ async def cargar_absentismos(file: UploadFile = File(...), db = Depends(get_db))
             nuevos += 1
             
             if config and config['estatus'] == 'Abierta':
-                sem_ini = pd.to_datetime(str(config['semana_inicio'])[:10]); sem_fin = pd.to_datetime(str(config['semana_fin'])[:10])
-                start_date = max(f_ini, sem_ini); end_date = min(f_fin, sem_fin)
+                sem_ini = parse_date(config['semana_inicio'])
+                sem_fin = parse_date(config['semana_fin'])
+                start_date = max(f_ini, sem_ini)
+                end_date = min(f_fin, sem_fin)
                 if start_date <= end_date:
                     curr_date = start_date
                     while curr_date <= end_date:
@@ -273,9 +307,11 @@ def rrhh_egreso(req: EgresoRequest, db = Depends(get_db)):
     
     inyectados = 0
     if config and config['estatus'] == 'Abierta':
-        d_inicio_egreso = pd.to_datetime(req.fecha_egreso) + timedelta(days=1)
-        sem_ini = pd.to_datetime(str(config['semana_inicio'])[:10]); sem_fin = pd.to_datetime(str(config['semana_fin'])[:10])
-        start_date = max(d_inicio_egreso, sem_ini); end_date = sem_fin
+        d_inicio_egreso = parse_date(req.fecha_egreso) + timedelta(days=1)
+        sem_ini = parse_date(config['semana_inicio'])
+        sem_fin = parse_date(config['semana_fin'])
+        start_date = max(d_inicio_egreso, sem_ini)
+        end_date = sem_fin
         
         if start_date <= end_date:
             curr_date = start_date
@@ -309,7 +345,7 @@ def rrhh_transferencia(req: TransferenciaRequest, db = Depends(get_db)):
     """, (emp['unidad_administrativa'], emp['gerencia_general'], reportador_old, req.fecha_efectiva, req.unidad_administrativa, req.gerencia_general, req.p00))
     
     db.commit()
-    return {"success": True, "mensaje": f"Trabajador {emp['nombres_apellidos']} transferido exitosamente.\nLa nueva unidad ya puede vincularlo, y la unidad antigua no lo perderá hasta el cierre."}
+    return {"success": True, "mensaje": f"Trabajador {emp['nombres_apellidos']} transferido exitosamente.\nLa nueva unidad ya puede vincularlo."}
 
 # ==========================================
 # 3. GESTIÓN AUTÓNOMA DE PERSONAL (UNIDADES)
@@ -370,19 +406,18 @@ async def cargar_empleados_excel_unidad(username: str = Form(...), file: UploadF
     cursor = db.cursor()
     cursor.execute("SELECT semana_inicio, semana_fin, estatus FROM configuracion_sistema WHERE id = 1")
     config = cursor.fetchone()
-    
     cursor.execute("SELECT unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (username,))
     usr = cursor.fetchone()
     
     try:
         contents = await file.read()
-        df = pd.read_excel(io.BytesIO(contents))
-        if 'P00' not in df.columns: raise HTTPException(status_code=400, detail="Falta columna 'P00'.")
+        data, headers = read_excel_to_dicts(contents)
+        if 'P00' not in headers: raise HTTPException(status_code=400, detail="Falta columna 'P00'.")
 
         cargas, errores = 0, []
-        for _, fila in df.iterrows():
-            p00 = str(fila['P00']).strip()
-            if p00 and p00 != 'nan':
+        for fila in data:
+            p00 = str(fila.get('P00', '')).strip()
+            if p00 and p00 != 'None':
                 cursor.execute("SELECT unidad_administrativa, gerencia_general, estatus, fecha_transferencia, unidad_anterior, gerencia_anterior, reportador_anterior FROM empleados_maestro WHERE p00 = %s", (p00,))
                 emp = cursor.fetchone()
                 if not emp: errores.append(f"{p00} (No Existe)"); continue
@@ -442,7 +477,8 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
     config = cursor.fetchone()
     if not config: return {"semana_activa": False, "empleados": []}
         
-    semana_ini, semana_fin = str(config['semana_inicio'])[:10], str(config['semana_fin'])[:10]
+    semana_ini = parse_date(config['semana_inicio'])
+    semana_fin = parse_date(config['semana_fin'])
 
     cursor.execute("SELECT rol, unidad_administrativa, gerencia_general FROM usuarios WHERE username = %s", (username,))
     usr = cursor.fetchone()
@@ -476,13 +512,12 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
             params.extend([usr['unidad_administrativa'], usr['gerencia_general'], usr['unidad_administrativa'], usr['gerencia_general'], semana_ini, semana_fin])
         
     query_emp += " ORDER BY e.gerencia_general ASC, e.nombres_apellidos ASC, a.fecha ASC"
-    
     cursor.execute(query_emp, params)
     registros = cursor.fetchall()
     
     cursor.execute("SELECT p00, tipo_ausentismo, fecha_inicio, fecha_fin FROM ausentismos_rrhh WHERE fecha_inicio <= %s AND fecha_fin >= %s", (semana_fin, semana_ini))
     ausentismos_raw = cursor.fetchall()
-    ausentismos_fijos = [{"p00": a['p00'], "tipo_ausentismo": a['tipo_ausentismo'], "fecha_inicio": a['fecha_inicio'].strftime('%Y-%m-%d'), "fecha_fin": a['fecha_fin'].strftime('%Y-%m-%d')} for a in ausentismos_raw]
+    ausentismos_fijos = [{"p00": a['p00'], "tipo_ausentismo": a['tipo_ausentismo'], "fecha_inicio": str(a['fecha_inicio'])[:10], "fecha_fin": str(a['fecha_fin'])[:10]} for a in ausentismos_raw]
     
     empleados_dict = {}
     for reg in registros:
@@ -491,7 +526,6 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
             transferido_esta_semana = check_transfer_in_week(reg['fecha_transferencia'], semana_ini, semana_fin)
 
             es_antiguo = False; es_nuevo = False
-            
             if transferido_esta_semana:
                 if reg['reportador_anterior'] == username: es_antiguo = True
                 elif clean_str(usr['unidad_administrativa']) == clean_str(reg['unidad_anterior']):
@@ -502,17 +536,17 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
             else:
                 es_nuevo = True
 
-            edit_start = semana_ini
-            edit_end = semana_fin
+            edit_start = semana_ini.strftime('%Y-%m-%d')
+            edit_end = semana_fin.strftime('%Y-%m-%d')
             gerencia_mostrar = reg['gerencia_general']
             
             if es_antiguo and not es_nuevo:
-                dt_trans = pd.to_datetime(reg['fecha_transferencia'])
+                dt_trans = parse_date(reg['fecha_transferencia'])
                 edit_end = (dt_trans - timedelta(days=1)).strftime('%Y-%m-%d')
                 gerencia_mostrar = reg['gerencia_anterior']
             elif es_nuevo and not es_antiguo:
                 if reg['fecha_transferencia']:
-                    edit_start = pd.to_datetime(reg['fecha_transferencia']).strftime('%Y-%m-%d')
+                    edit_start = parse_date(reg['fecha_transferencia']).strftime('%Y-%m-%d')
 
             empleados_dict[p00] = {
                 "p00": p00, "nombres_apellidos": reg['nombres_apellidos'] + (" (Egresado)" if reg['maestro_estatus'] == 'Inactivo' else ""), 
@@ -526,7 +560,7 @@ def obtener_asistencia_unidad(username: str, db = Depends(get_db)):
             empleados_dict[p00]["asistencia"][fecha_str] = {"estatus": reg['estatus'], "motivo": reg['motivo']}
             
     return {
-        "semana_activa": True, "fecha_inicio": semana_ini, "fecha_fin": semana_fin,
+        "semana_activa": True, "fecha_inicio": semana_ini.strftime('%Y-%m-%d'), "fecha_fin": semana_fin.strftime('%Y-%m-%d'),
         "bloqueado_por_envio": bloqueado, "empleados": list(empleados_dict.values()), "ausentismos_fijos": ausentismos_fijos
     }
 
@@ -552,8 +586,8 @@ def guardar_rango(req: RangoAsistenciaRequest, db = Depends(get_db)):
     if config and config['estatus'] == 'Cerrada': raise HTTPException(status_code=403, detail="Semana cerrada.")
     if is_jurisdiction_locked(cursor, req.username, config['semana_inicio'], config['semana_fin']): raise HTTPException(status_code=403, detail="Bloqueado por Certificación.")
     
-    d_ini = pd.to_datetime(req.fecha_inicio); d_fin = pd.to_datetime(req.fecha_fin)
-    sem_ini = pd.to_datetime(str(config['semana_inicio'])[:10]); sem_fin = pd.to_datetime(str(config['semana_fin'])[:10])
+    d_ini = parse_date(req.fecha_inicio); d_fin = parse_date(req.fecha_fin)
+    sem_ini = parse_date(config['semana_inicio']); sem_fin = parse_date(config['semana_fin'])
     start_date = max(d_ini, sem_ini); end_date = min(d_fin, sem_fin)
     
     if start_date <= end_date:
@@ -651,7 +685,8 @@ def reversar_cierre(req: ReversarRequest, db = Depends(get_db)):
     cursor.execute("SELECT semana_inicio, semana_fin FROM configuracion_sistema WHERE id = 1")
     config = cursor.fetchone()
     if not config: raise HTTPException(status_code=400, detail="No hay semana activa.")
-    sem_ini, sem_fin = str(config['semana_inicio'])[:10], str(config['semana_fin'])[:10]
+    sem_ini = str(config['semana_inicio'])[:10]
+    sem_fin = str(config['semana_fin'])[:10]
 
     cursor.execute("SELECT username FROM usuarios WHERE rol = 'Cierre de Unidad' AND (CASE WHEN unidad_administrativa = 'Presidencia' THEN gerencia_general ELSE unidad_administrativa END) = %s", (req.jurisdiccion,))
     users = cursor.fetchall()
@@ -696,31 +731,53 @@ def monitoreo_entregas(db = Depends(get_db)):
     cursor.execute(query, (sem_ini, sem_fin))
     entregas = cursor.fetchall()
 
-    display_ini = pd.to_datetime(sem_ini).strftime('%d/%m/%Y')
-    display_fin = pd.to_datetime(sem_fin).strftime('%d/%m/%Y')
+    display_ini = parse_date(sem_ini).strftime('%d/%m/%Y')
+    display_fin = parse_date(sem_fin).strftime('%d/%m/%Y')
 
     return {"semana_activa": True, "fecha_inicio": display_ini, "fecha_fin": display_fin, "entregas": entregas}
 
-def generar_excel_agrupado(df_detalle, nombre_archivo):
+def generar_excel_agrupado(df_detalle_records, nombre_archivo):
     output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        if not df_detalle.empty:
-            df_detalle['fecha'] = pd.to_datetime(df_detalle['fecha']).dt.strftime('%d/%m/%Y')
-            df_detalle.columns = ['Fecha', 'P00', 'Cédula', 'Nombres y Apellidos', 'Unidad Administrativa (VP)', 'Gerencia General', 'Estatus Asistencia', 'Motivo']
-            df_detalle.to_excel(writer, index=False, sheet_name="Detalle_Asistencia")
+    wb = openpyxl.Workbook()
+    ws_det = wb.active
+    ws_det.title = "Detalle_Asistencia"
+    
+    ws_det.append(['Fecha', 'P00', 'Cédula', 'Nombres y Apellidos', 'Unidad Administrativa (VP)', 'Gerencia General', 'Estatus Asistencia', 'Motivo'])
+    
+    pagar_list = ["Asistencia Normal", "Vacaciones", "Dia Descanso Legal", "Dia Libre Compensatorio"]
+    descontar_list = ["Teletrabajo", "Reposo", "Permiso otorgado", "Falta Injustificada", "Egresado"]
+    
+    resumen = {}
+    
+    if not df_detalle_records:
+        ws_det.append(["No hay registros"])
+    else:
+        for r in df_detalle_records:
+            fecha_str = r['fecha'].strftime('%d/%m/%Y') if r.get('fecha') else ""
+            ws_det.append([
+                fecha_str, r['p00'], r['cedula'], r['nombres_apellidos'], 
+                r['unidad_administrativa'], r['gerencia_general'], 
+                r['estatus'], r['motivo']
+            ])
             
-            pagar_list = ["Asistencia Normal", "Vacaciones", "Dia Descanso Legal", "Dia Libre Compensatorio"]
-            descontar_list = ["Teletrabajo", "Reposo", "Permiso otorgado", "Falta Injustificada", "Egresado"]
+            key = (r['p00'], r['cedula'], r['nombres_apellidos'], r['unidad_administrativa'], r['gerencia_general'])
+            if key not in resumen:
+                resumen[key] = {'pagar': 0, 'descontar': 0}
+                
+            est = r.get('estatus')
+            if est in pagar_list: resumen[key]['pagar'] += 1
+            if est in descontar_list: resumen[key]['descontar'] += 1
+                
+    ws_res = wb.create_sheet(title="Resumen_Pago")
+    ws_res.append(['P00', 'Cédula', 'Nombres y Apellidos', 'Unidad Administrativa (VP)', 'Gerencia General', 'Días a Pagar', 'Días a Descontar'])
+    
+    if not df_detalle_records:
+        ws_res.append(["No hay registros"])
+    else:
+        for k, v in resumen.items():
+            ws_res.append([k[0], k[1], k[2], k[3], k[4], v['pagar'], v['descontar']])
             
-            df_resumen = df_detalle.copy()
-            df_resumen['Días a Pagar'] = df_resumen['Estatus Asistencia'].apply(lambda x: 1 if x in pagar_list else 0)
-            df_resumen['Días a Descontar'] = df_resumen['Estatus Asistencia'].apply(lambda x: 1 if x in descontar_list else 0)
-            
-            df_resumen = df_resumen.groupby(['P00', 'Cédula', 'Nombres y Apellidos', 'Unidad Administrativa (VP)', 'Gerencia General'], as_index=False).agg({'Días a Pagar': 'sum', 'Días a Descontar': 'sum'})
-            df_resumen.to_excel(writer, index=False, sheet_name="Resumen_Pago")
-        else:
-            pd.DataFrame(["No hay registros"]).to_excel(writer, index=False, sheet_name="Sin_Datos")
-            
+    wb.save(output)
     output.seek(0)
     headers = {'Content-Disposition': f'attachment; filename="{nombre_archivo}.xlsx"', 'Access-Control-Expose-Headers': 'Content-Disposition'}
     return StreamingResponse(output, headers=headers, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -731,9 +788,9 @@ def descargar_consolidado(db = Depends(get_db)):
     cursor.execute("SELECT semana_inicio, semana_fin FROM configuracion_sistema WHERE id = 1")
     config = cursor.fetchone()
     if not config: raise HTTPException(status_code=400, detail="No hay semana activa.")
-    sem_ini, sem_fin = str(config['semana_inicio'])[:10], str(config['semana_fin'])[:10]
+    sem_ini = str(config['semana_inicio'])[:10]
+    sem_fin = str(config['semana_fin'])[:10]
 
-    # Valida si faltan jefaturas por entregar (Depende de Firmas, no de matemáticas variables)
     query_val = """
         SELECT u.username FROM usuarios u
         LEFT JOIN estado_entregas e ON u.username = e.unidad_nombre AND e.semana_inicio = %s AND e.semana_fin = %s
@@ -747,7 +804,7 @@ def descargar_consolidado(db = Depends(get_db)):
         FROM asistencia_diaria a INNER JOIN empleados_maestro e ON a.p00 = e.p00
         WHERE a.fecha BETWEEN %s AND %s ORDER BY e.unidad_administrativa ASC, e.gerencia_general ASC, e.p00 ASC, a.fecha ASC
     """, (sem_ini, sem_fin))
-    return generar_excel_agrupado(pd.DataFrame(cursor.fetchall()), f"Nomina_Consolidada_{sem_ini}")
+    return generar_excel_agrupado(cursor.fetchall(), f"Nomina_Consolidada_{sem_ini}")
 
 @app.get("/api/rrhh/descargar-jurisdiccion/{jurisdiccion}")
 def descargar_jurisdiccion(jurisdiccion: str, db = Depends(get_db)):
@@ -755,7 +812,8 @@ def descargar_jurisdiccion(jurisdiccion: str, db = Depends(get_db)):
     cursor.execute("SELECT semana_inicio, semana_fin FROM configuracion_sistema WHERE id = 1")
     config = cursor.fetchone()
     if not config: raise HTTPException(status_code=400, detail="No hay semana activa.")
-    sem_ini, sem_fin = str(config['semana_inicio'])[:10], str(config['semana_fin'])[:10]
+    sem_ini = str(config['semana_inicio'])[:10]
+    sem_fin = str(config['semana_fin'])[:10]
 
     query_val = """
         SELECT 1 FROM usuarios u 
@@ -774,7 +832,7 @@ def descargar_jurisdiccion(jurisdiccion: str, db = Depends(get_db)):
         ORDER BY e.unidad_administrativa ASC, e.gerencia_general ASC, e.p00 ASC, a.fecha ASC
     """, (sem_ini, sem_fin, jurisdiccion))
     safe_name = "".join([c for c in jurisdiccion if c.isalpha() or c.isdigit() or c==' ']).rstrip()
-    return generar_excel_agrupado(pd.DataFrame(cursor.fetchall()), f"Nomina_{safe_name}")
+    return generar_excel_agrupado(cursor.fetchall(), f"Nomina_{safe_name}")
 
 @app.get("/")
 @app.get("/index.html")
