@@ -70,8 +70,9 @@
             <!-- CONTENEDOR DE EDICIÓN ACTIVA -->
             <div id="contenedor-edicion-activa" class="space-y-6">
                 <div id="panel-resumen-ejecutivo" class="grid grid-cols-1 md:grid-cols-2 gap-6 hidden">
-                    <div class="bg-white rounded-xl shadow-md p-5 border border-blue-100 border-t-4 border-t-blue-500">
-                        <h2 class="text-sm font-bold text-blue-800 mb-3 uppercase tracking-wider"><i class="fa-solid fa-user-edit mr-2"></i>Mi Gestión Directa</h2>
+                    <div class="bg-white rounded-xl shadow-md p-5 border border-blue-100 border-t-4 border-t-blue-500 relative">
+                        <h2 class="text-sm font-bold text-blue-800 uppercase tracking-wider"><i class="fa-solid fa-user-edit mr-2"></i>Mi Gestión Directa</h2>
+                        <div id="kpi-mios-juris" class="text-[10px] text-blue-500 font-bold mb-3 uppercase h-3 truncate">Cargando...</div>
                         <div class="flex justify-between items-center mb-3">
                             <div class="text-center"><p class="text-xs text-gray-500 font-bold">Trabajadores</p><p id="kpi-mios-total" class="text-xl font-bold text-gray-800">0</p></div>
                             <div class="text-center"><p class="text-xs text-gray-500 font-bold">Listos</p><p id="kpi-mios-listos" class="text-xl font-bold text-green-600">0</p></div>
@@ -79,8 +80,9 @@
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-2"><div id="kpi-mios-bar" class="bg-blue-500 h-2 rounded-full" style="width: 0%"></div></div>
                     </div>
-                    <div id="card-terceros" class="bg-white rounded-xl shadow-md p-5 border border-purple-100 border-t-4 border-t-purple-500 hidden">
-                        <h2 class="text-sm font-bold text-purple-800 mb-3 uppercase tracking-wider"><i class="fa-solid fa-users mr-2"></i>Gestión de Terceros (Auditoría)</h2>
+                    <div id="card-terceros" class="bg-white rounded-xl shadow-md p-5 border border-purple-100 border-t-4 border-t-purple-500 relative hidden">
+                        <h2 class="text-sm font-bold text-purple-800 uppercase tracking-wider"><i class="fa-solid fa-users mr-2"></i>Gestión de Terceros (Auditoría)</h2>
+                        <div id="kpi-otros-juris" class="text-[10px] text-purple-500 font-bold mb-3 uppercase h-3 truncate">Cargando...</div>
                         <div class="flex justify-between items-center mb-3">
                             <div class="text-center"><p class="text-xs text-gray-500 font-bold">Trabajadores</p><p id="kpi-otros-total" class="text-xl font-bold text-gray-800">0</p></div>
                             <div class="text-center"><p class="text-xs text-gray-500 font-bold">Listos</p><p id="kpi-otros-listos" class="text-xl font-bold text-green-600">0</p></div>
@@ -194,6 +196,7 @@
                             <button onclick="document.getElementById('modal-movimientos').classList.remove('hidden')" class="w-full bg-blue-100 text-blue-700 py-2 rounded font-bold hover:bg-blue-200 text-xs border border-blue-200"><i class="fa-solid fa-user-edit mr-1"></i>Gestionar</button>
                         </div>
                     </div>
+
                     <div class="bg-white rounded-xl shadow-md p-6 border border-gray-100">
                         <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2"><i class="fa-solid fa-file-medical text-blue-600 mr-2"></i>3. Cargar Absentismos</h2>
                         <input type="file" id="file-absentismos" accept=".xlsx" class="block w-full text-sm text-gray-500 file:mr-4 file:py-1 file:px-2 file:rounded file:border-0 file:font-semibold file:bg-gray-100 file:text-gray-700 mb-2 border border-gray-300"/>
@@ -393,7 +396,8 @@
                     if(currentRole === "Recursos Humanos") {
                         mostrarVista('view-rrhh'); cargarEstructuraSelects(); cargarMonitoreoRRHH(); cargarUsuariosRRHH();
                     } else {
-                        mostrarVista('view-unidad'); cargarDatosUnidad();
+                        mostrarVista('view-unidad');
+                        cargarDatosUnidad();
                     }
                 } else { err.innerText = data.detail || "Error de credenciales"; err.classList.remove('hidden'); }
             } catch (error) { err.innerText = "Falla de red contactando al ERP."; err.classList.remove('hidden'); }
@@ -491,6 +495,12 @@
 
                 semanaData = { start: data.fecha_inicio, end: data.fecha_fin, locked: data.bloqueado_por_envio, ausentismos: data.ausentismos_fijos };
                 document.getElementById('unidad-rango-fechas').innerHTML = `<i class="fa-regular fa-calendar text-blue-600 mr-2"></i><b>${data.fecha_inicio}</b> al <b>${data.fecha_fin}</b>`;
+                
+                // INYECCIÓN DE LA JURISDICCIÓN EN EL DASHBOARD
+                if (data.jurisdiccion) {
+                    document.getElementById('kpi-mios-juris').innerText = data.jurisdiccion;
+                    document.getElementById('kpi-otros-juris').innerText = data.jurisdiccion;
+                }
                 
                 const fechas7 = [];
                 let curr = new Date(data.fecha_inicio + "T12:00:00"); let fin = new Date(data.fecha_fin + "T12:00:00");
@@ -775,18 +785,8 @@
         }
 
         // ==========================================
-        // LÓGICA RRHH (MOVIMIENTOS Y CARGA MASIVA)
+        // LÓGICA RRHH (MOVIMIENTOS INDIVIDUALES)
         // ==========================================
-        async function cargarMasivaPersonalRRHH() {
-            const fileInput = document.getElementById('file-masiva'); if(!fileInput.files[0]) return alert("Seleccione el Excel con el personal base.");
-            const formData = new FormData(); formData.append("file", fileInput.files[0]);
-            try {
-                const res = await fetch(`${API_BASE}/api/rrhh/carga-masiva-personal`, { method: 'POST', body: formData });
-                const data = await res.json();
-                if(res.ok) { alert(data.mensaje); fileInput.value = ""; } else alert("Error: " + data.detail);
-            } catch(e) { alert("Error procesando archivo."); }
-        }
-
         function switchTabMov(tab) {
             document.getElementById('form-mov-ingreso').classList.add('hidden');
             document.getElementById('form-mov-transferencia').classList.add('hidden');
